@@ -32,7 +32,9 @@ const teamsOnly = [
   function generateBoard() {
     const size = parseInt(document.getElementById("gridSize").value);
     let selected = shuffle([...teamsOnly]).slice(0, size * 2);
-    selected = if (document.getElementById("withExtras").checked) { injectExtrasInTeamList(selected, Math.max(1, Math.floor(size / 2))); }
+    if (document.getElementById("withExtras").checked) {
+  selected = injectExtrasInTeamList(selected, Math.max(1, Math.floor(size / 2)));
+}
 
     const topRow = selected.slice(0, size);
     const leftCol = selected.slice(size, size * 2);

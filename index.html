@@ -16,12 +16,14 @@
         <option value="5">5×5</option>
       </select>
       <button onclick="generateBoard()">Neue Runde</button>
+      <label style="display: flex; align-items: center; gap: 0.4rem;">
+        <input type="checkbox" id="logoOnly" onchange="generateBoard()" />
+        Nur Logos anzeigen
+      </label>
     </div>
     <div id="grid" class="grid-container"></div>
     <p id="result"></p>
   </div>
-
-  <!-- WICHTIG: logos.js MUSS VOR main.js -->
   <script src="logos.js"></script>
   <script src="main.js"></script>
 </body>

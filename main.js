@@ -88,9 +88,13 @@ function createTeamCell(name) {
     div.appendChild(img);
   }
 
-  const span = document.createElement("span");
-  span.innerText = name;
-  div.appendChild(span);
+  const logoOnly = document.getElementById("logoOnly");
+  if (!logoOnly || !logoOnly.checked) {
+    const span = document.createElement("span");
+    span.innerText = name;
+    div.appendChild(span);
+  }
+
   return div;
 }
 

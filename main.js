@@ -119,3 +119,4 @@ const teamsOnly = [
   }
 generateBoard();
 });
+window.generateBoard = generateBoard;

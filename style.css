@@ -29,7 +29,7 @@ body {
   box-shadow: 0 12px 28px var(--glass-shadow);
   border: 1px solid var(--glass-border);
   width: 95vw;
-  max-width: 720px;
+  max-width: 1000px;
   text-align: center;
   color: #ffffff;
 }
@@ -43,6 +43,10 @@ h1 {
 
 .controls {
   margin-bottom: 1rem;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
 button, select {
@@ -54,7 +58,6 @@ button, select {
   border-radius: 0.75rem;
   backdrop-filter: blur(10px);
   cursor: pointer;
-  margin-right: 0.5rem;
   box-shadow: 0 2px 5px rgba(0,0,0,0.3);
 }
 
@@ -64,24 +67,33 @@ button, select {
   justify-content: center;
   align-items: center;
   grid-auto-rows: 80px;
+  overflow-x: auto;
 }
 
 .team-logo, .empty {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   background: var(--highlight);
   border-radius: 1rem;
-  padding: 0.5rem;
+  padding: 0.5rem 1rem;
   min-height: 60px;
-  min-width: 120px;
+  min-width: 160px;
   font-size: 1rem;
   font-weight: bold;
   color: #ffffff;
   text-shadow: 0 1px 4px rgba(0,0,0,0.7);
   border: 1px solid var(--glass-border);
-  word-break: break-word;
-  text-align: center;
+  word-break: keep-all;
+  white-space: nowrap;
+  gap: 0.5rem;
+}
+
+.team-logo img {
+  height: 28px;
+  width: 28px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .cell {
@@ -92,6 +104,7 @@ button, select {
   justify-content: center;
   align-items: center;
   transition: background 0.3s ease;
+  min-width: 120px;
 }
 
 .cell input {

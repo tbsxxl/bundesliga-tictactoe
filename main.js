@@ -7,6 +7,27 @@ const teams = [
   "1. FC Köln", "FC St. Pauli", "Hamburger SV"
 ];
 
+const teamColors = {
+  "FC Bayern München": "#dc052d",
+  "Borussia Dortmund": "#fdee00",
+  "RB Leipzig": "#c8102e",
+  "Bayer Leverkusen": "#e32219",
+  "VfB Stuttgart": "#ed1c24",
+  "Eintracht Frankfurt": "#ed1c24",
+  "TSG Hoffenheim": "#005ca9",
+  "1. FC Heidenheim": "#004494",
+  "Werder Bremen": "#008557",
+  "SC Freiburg": "#000000",
+  "FC Augsburg": "#a51e36",
+  "VfL Wolfsburg": "#65b32e",
+  "Borussia Mönchengladbach": "#000000",
+  "1. FC Union Berlin": "#d40511",
+  "1. FSV Mainz 05": "#ed1c24",
+  "1. FC Köln": "#e32219",
+  "FC St. Pauli": "#6c2e1f",
+  "Hamburger SV": "#0f1e44"
+};
+
 function shuffle(arr) {
   return arr.sort(() => Math.random() - 0.5);
 }
@@ -50,14 +71,23 @@ function generateBoard() {
 function createTeamCell(name) {
   const div = document.createElement("div");
   div.className = "team-logo";
+
+  if (teamColors[name]) {
+    div.style.backgroundColor = teamColors[name];
+    div.style.color = "#ffffff";
+  }
+
   if (logoMap[name]) {
     const img = document.createElement("img");
     img.src = logoMap[name];
     img.alt = name;
-    img.style.height = "36px";
-    img.style.marginRight = "6px";
+    img.style.height = "28px";
+    img.style.width = "28px";
+    img.style.objectFit = "contain";
+    img.style.marginRight = "0.5rem";
     div.appendChild(img);
   }
+
   const span = document.createElement("span");
   span.innerText = name;
   div.appendChild(span);

@@ -1,32 +1,177 @@
+
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Bundesliga Tic Tac Toe</title>
-  <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #1f2a35, #3e4d5c);
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+    .container {
+      max-width: 720px;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 1.5rem;
+      padding: 2rem;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    }
+    h1 { text-align: center; }
+    .controls {
+      margin-bottom: 1rem;
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+    }
+    select, button {
+      padding: 0.6rem 1rem;
+      border-radius: 0.5rem;
+      border: none;
+      background: rgba(255,255,255,0.1);
+      color: white;
+      cursor: pointer;
+    }
+    .grid-container {
+      display: grid;
+      gap: 0.5rem;
+      justify-content: center;
+      align-items: center;
+      grid-auto-rows: 80px;
+      margin-top: 1rem;
+    }
+    .cell, .team, .empty {
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 100px;
+      padding: 0.5rem;
+      text-align: center;
+    }
+    .cell input {
+      background: transparent;
+      border: none;
+      color: white;
+      font-size: 1.2rem;
+      text-align: center;
+      width: 100%;
+    }
+    .cell input:focus {
+      outline: none;
+    }
+    .correct {
+      background: rgba(80, 255, 120, 0.25);
+    }
+  </style>
 </head>
 <body>
   <div class="container">
     <h1>Bundesliga Tic Tac Toe</h1>
     <div class="controls">
-      <select id="gridSize" onchange="generateBoard()">
-        <option value="3" selected>3×3</option>
+      <select id="gridSize">
+        <option value="3">3×3</option>
         <option value="4">4×4</option>
         <option value="5">5×5</option>
       </select>
       <button onclick="generateBoard()">Neue Runde</button>
     </div>
-
-    <div class="option-toggle">
-      <label><input type="checkbox" id="withExtras" checked> Mit Zusatzkategorien (Meister, Pokalsieger)</label>
-    </div>
-
-    <div id="gridContainer" class="grid-container"></div>
+    <div id="grid" class="grid-container"></div>
     <p id="result"></p>
   </div>
+  <script>
+    const teams = [
+      "Bayern", "Dortmund", "Leipzig", "Leverkusen", "Stuttgart", "Frankfurt",
+      "Hoffenheim", "Heidenheim", "Bremen", "Freiburg", "Augsburg", "Wolfsburg",
+      "Gladbach", "Union", "Mainz", "Köln", "St. Pauli", "HSV"
+    ];
 
-  <script src="logos.js"></script>
-  <script src="main.js"></script>
+    function shuffle(arr) {
+      return arr.sort(() => Math.random() - 0.5);
+    }
+
+    function generateBoard() {
+      const size = parseInt(document.getElementById("gridSize").value);
+      const required = size * 2;
+      const selected = shuffle(teams).slice(0, required);
+      const top = selected.slice(0, size);
+      const left = selected.slice(size);
+
+      const grid = document.getElementById("grid");
+      grid.innerHTML = "";
+      grid.style.gridTemplateColumns = `repeat(${size + 1}, 1fr)`;
+
+      // Kopfzeile
+      grid.appendChild(document.createElement("div")); // leeres Feld
+      top.forEach(t => {
+        const d = document.createElement("div");
+        d.className = "team";
+        d.textContent = t;
+        grid.appendChild(d);
+      });
+
+      // Zeilen mit Teams und Eingabefeldern
+      for (let r = 0; r < size; r++) {
+        const rowLabel = document.createElement("div");
+        rowLabel.className = "team";
+        rowLabel.textContent = left[r];
+        grid.appendChild(rowLabel);
+
+        for (let c = 0; c < size; c++) {
+          const cell = document.createElement("div");
+          cell.className = "cell";
+          const input = document.createElement("input");
+          input.type = "text";
+          input.placeholder = "?";
+          input.addEventListener("input", () => {
+            input.value = input.value.toUpperCase();
+            checkWin(size);
+          });
+          cell.appendChild(input);
+          grid.appendChild(cell);
+        }
+      }
+
+      document.getElementById("result").textContent = "";
+    }
+
+    function checkWin(size) {
+      const inputs = Array.from(document.querySelectorAll(".cell input"));
+      const values = inputs.map(i => i.value.trim());
+      const lines = [];
+
+      for (let i = 0; i < size; i++) {
+        lines.push([...Array(size).keys()].map(j => i * size + j));
+        lines.push([...Array(size).keys()].map(j => j * size + i));
+      }
+
+      lines.push([...Array(size).keys()].map(i => i * size + i));
+      lines.push([...Array(size).keys()].map(i => i * size + (size - 1 - i)));
+
+      for (const line of lines) {
+        const first = values[line[0]];
+        if (first && line.every(idx => values[idx] === first)) {
+          line.forEach(idx => {
+            inputs[idx].classList.add("correct");
+            inputs[idx].disabled = true;
+          });
+          document.getElementById("result").textContent = "🏆 Tic Tac Toe!";
+          return;
+        }
+      }
+    }
+
+    generateBoard();
+  </script>
 </body>
 </html>

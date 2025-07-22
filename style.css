@@ -1,0 +1,104 @@
+
+:root {
+  --blur-strength: 20px;
+  --main-bg: rgba(255, 255, 255, 0.05);
+  --highlight: rgba(255, 255, 255, 0.1);
+  --glass-border: rgba(255, 255, 255, 0.2);
+  --glass-shadow: rgba(0, 0, 0, 0.15);
+  --primary-glow: #a3d2f4;
+  --text-glow: #f4f8ff;
+  --accent: #a8c5db;
+}
+
+body {
+  margin: 0;
+  font-family: 'SF Pro Display', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #dce3ea 0%, #b5c1cc 100%);
+  color: var(--text-glow);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  backdrop-filter: blur(4px);
+}
+
+.container {
+  backdrop-filter: blur(var(--blur-strength));
+  background: var(--main-bg);
+  border-radius: 1.5rem;
+  padding: 2rem;
+  box-shadow: 0 8px 24px var(--glass-shadow);
+  border: 1px solid var(--glass-border);
+  width: 90vw;
+  max-width: 720px;
+  text-align: center;
+  color: #fff;
+}
+
+h1 {
+  font-size: 2rem;
+  margin-bottom: 1.5rem;
+  color: var(--primary-glow);
+  text-shadow: 0 1px 4px var(--glass-shadow);
+}
+
+.controls {
+  margin-bottom: 1rem;
+}
+
+button, select {
+  background: var(--highlight);
+  color: white;
+  font-size: 1rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--glass-border);
+  border-radius: 0.75rem;
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  margin-right: 0.5rem;
+}
+
+.grid-container {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.team-logo, .empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--highlight);
+  border-radius: 1rem;
+  padding: 0.5rem;
+  min-height: 60px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #f0f0f0;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  border: 1px solid var(--glass-border);
+}
+
+.cell {
+  background: var(--main-bg);
+  border-radius: 1rem;
+  min-height: 80px;
+  transition: background 0.3s;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.cell input {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 1rem;
+  text-align: center;
+  outline: none;
+  width: 90%;
+}
+
+.correct {
+  background: rgba(100, 255, 100, 0.2);
+}

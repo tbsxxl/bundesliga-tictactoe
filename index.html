@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Bundesliga Tic Tac Toe</title>
   <link rel="stylesheet" href="style.css">
-  <link rel="icon" href="favicon.ico" type="image/x-icon">
 </head>
 <body>
   <div class="container">
@@ -18,22 +17,16 @@
       </select>
       <button onclick="generateBoard()">Neue Runde</button>
     </div>
-    
 
-<div class="option-toggle">
-  <label><input type="checkbox" id="withExtras" checked> Mit Zusatzkategorien (Meister, Pokalsieger)</label>
-</div>
+    <div class="option-toggle">
+      <label><input type="checkbox" id="withExtras" checked> Mit Zusatzkategorien (Meister, Pokalsieger)</label>
+    </div>
 
-<div id="gridContainer" class="grid-container"></div>
-
-
+    <div id="gridContainer" class="grid-container"></div>
     <p id="result"></p>
   </div>
-
-  
 
   <script src="logos.js"></script>
   <script src="main.js"></script>
 </body>
-
 </html>

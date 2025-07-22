@@ -60,11 +60,17 @@ button, select {
 }
 
 .grid-container {
+  justify-content: center;
+  align-items: center;
+  grid-auto-rows: 80px;
   display: grid;
   gap: 0.5rem;
 }
 
 .team-logo, .empty {
+  min-width: 120px;
+  text-align: center;
+  word-break: break-word;
   display: flex;
   align-items: center;
   justify-content: center;

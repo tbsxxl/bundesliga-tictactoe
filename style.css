@@ -1,26 +1,25 @@
 
 :root {
   --blur-strength: 20px;
-  --main-bg: rgba(255, 255, 255, 0.08);
-  --highlight: rgba(255, 255, 255, 0.15);
-  --glass-border: rgba(200, 200, 200, 0.3);
-  --glass-shadow: rgba(0, 0, 0, 0.2);
-  --primary-glow: #e0f0ff;
+  --main-bg: rgba(20, 25, 30, 0.6);
+  --highlight: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.15);
+  --glass-shadow: rgba(0, 0, 0, 0.4);
+  --primary-glow: #ffffff;
   --text-glow: #ffffff;
-  --accent: #91bcd2;
+  --accent: #7eb1d1;
 }
 
 body {
   margin: 0;
   font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;
-  background: linear-gradient(135deg, #cdd7e1, #a0b0be);
+  background: linear-gradient(135deg, #1f2a35, #3e4d5c);
   color: var(--text-glow);
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  backdrop-filter: blur(4px);
 }
 
 .container {
@@ -28,19 +27,19 @@ body {
   background: var(--main-bg);
   border-radius: 1.5rem;
   padding: 2rem;
-  box-shadow: 0 8px 24px var(--glass-shadow);
+  box-shadow: 0 12px 28px var(--glass-shadow);
   border: 1px solid var(--glass-border);
   width: 95vw;
   max-width: 720px;
   text-align: center;
-  color: #fefefe;
+  color: #ffffff;
 }
 
 h1 {
-  font-size: 2.2rem;
+  font-size: 2.4rem;
   margin-bottom: 1.5rem;
   color: var(--primary-glow);
-  text-shadow: 0 2px 6px rgba(0,0,0,0.25);
+  text-shadow: 0 2px 8px rgba(0,0,0,0.6);
 }
 
 .controls {
@@ -49,7 +48,7 @@ h1 {
 
 button, select {
   background: var(--highlight);
-  color: #fff;
+  color: #ffffff;
   font-size: 1rem;
   padding: 0.6rem 1.2rem;
   border: 1px solid var(--glass-border);
@@ -57,7 +56,7 @@ button, select {
   backdrop-filter: blur(10px);
   cursor: pointer;
   margin-right: 0.5rem;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.3);
 }
 
 .grid-container {
@@ -76,30 +75,30 @@ button, select {
   font-size: 1rem;
   font-weight: bold;
   color: #ffffff;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  text-shadow: 0 1px 4px rgba(0,0,0,0.7);
   border: 1px solid var(--glass-border);
 }
 
 .cell {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
   border-radius: 1rem;
   min-height: 80px;
-  transition: background 0.3s;
   display: flex;
   justify-content: center;
   align-items: center;
+  transition: background 0.3s ease;
 }
 
 .cell input {
   background: transparent;
   border: none;
   color: #ffffff;
-  font-size: 1.2rem;
+  font-size: 1.4rem;
   font-weight: 600;
   text-align: center;
   outline: none;
   width: 100%;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.6);
 }
 
 .cell input:focus {
@@ -108,7 +107,7 @@ button, select {
 }
 
 .correct {
-  background: rgba(100, 255, 100, 0.25);
-  border: 1px solid #84e084;
-  box-shadow: inset 0 0 6px #84e084;
+  background: rgba(80, 255, 120, 0.25);
+  border: 1px solid #70e070;
+  box-shadow: inset 0 0 6px #70e070;
 }

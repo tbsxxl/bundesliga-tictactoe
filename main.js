@@ -1,3 +1,4 @@
+document.addEventListener("DOMContentLoaded", function() {
 const teamsOnly = [
     "FC Bayern München", "Borussia Dortmund", "RB Leipzig", "Bayer Leverkusen",
     "VfB Stuttgart", "Eintracht Frankfurt", "TSG Hoffenheim", "1. FC Heidenheim",
@@ -114,5 +115,5 @@ const teamsOnly = [
       }
     }
   }
-
-  window.onload = generateBoard;
+generateBoard();
+});

@@ -29,26 +29,45 @@ const teamsOnly = [
     return result;
   }
 
-  function generateBoard() {
-    const size = parseInt(document.getElementById("gridSize").value);
-    let selected = shuffle([...teamsOnly]).slice(0, size * 2);
-    if (document.getElementById("withExtras").checked) {
-  selected = injectExtrasInTeamList(selected, Math.max(1, Math.floor(size / 2)));
-}
-
-    const topRow = selected.slice(0, size);
-    const leftCol = selected.slice(size, size * 2);
-
-    const gridContainer = document.getElementById("gridContainer");
-    gridContainer.innerHTML = "";
-    gridContainer.style.display = "grid";
-    gridContainer.style.gridTemplateColumns = "repeat(" + (size + 1) + ", 1fr)";
-    gridContainer.style.gap = "0.5rem";
-
-    gridContainer.appendChild(createEmptyCell());
-    for (let i = 0; i < size; i++) {
-      gridContainer.appendChild(createTeamLogo(topRow[i]));
+function generateBoard() {
+  const size = parseInt(document.getElementById("gridSize").value);
+  let pool = shuffle([...teamsOnly]);
+  const required = size * 2;
+  if (document.getElementById("withExtras").checked) {
+    pool = injectExtrasInTeamList(pool, Math.max(1, Math.floor(size / 2)));
+  }
+  pool = [...new Set(pool)].slice(0, required);
+  if (pool.length < required) return alert("Nicht genug Teams verfügbar.");
+  const topRow = pool.slice(0, size);
+  const leftCol = pool.slice(size, required);
+  const gridContainer = document.getElementById("gridContainer");
+  gridContainer.innerHTML = "";
+  gridContainer.style.display = "grid";
+  gridContainer.style.gridTemplateColumns = "repeat(" + (size + 1) + ", 1fr)";
+  gridContainer.style.gridTemplateRows = "repeat(" + (size + 1) + ", 80px)";
+  gridContainer.style.gap = "0.5rem";
+  gridContainer.appendChild(createEmptyCell());
+  for (let i = 0; i < size; i++) {
+    gridContainer.appendChild(createTeamLogo(topRow[i]));
+  }
+  for (let row = 0; row < size; row++) {
+    gridContainer.appendChild(createTeamLogo(leftCol[row]));
+    for (let col = 0; col < size; col++) {
+      const input = document.createElement("input");
+      input.type = "text";
+      input.placeholder = "?";
+      input.oninput = () => {
+        input.value = input.value.toUpperCase();
+        checkWin(size);
+      };
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      cell.appendChild(input);
+      gridContainer.appendChild(cell);
     }
+  }
+  document.getElementById("result").innerText = "";
+}
 
     for (let row = 0; row < size; row++) {
       gridContainer.appendChild(createTeamLogo(leftCol[row]));

@@ -1,80 +1,195 @@
+/* Bundesliga Tic Tac Toe – Aktuell überarbeitetes Style */
 
-/* Baseline */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap');
+
 body {
-  background-color: #200036;
-  font-family: 'Arial', sans-serif;
   margin: 0;
-  padding: 0;
+  font-family: 'Montserrat', sans-serif;
+  background-color: #200032;
+  color: #ff66b2;
+  text-align: center;
 }
 
-/* Grid-Anpassung */
-.board {
-  display: grid;
-  justify-content: center;
-  align-items: center;
-  gap: 12px;
-  padding: 16px;
-}
-
-/* Zellen */
-.cell {
-  background-color: #f5f2eb;
-  border-radius: 16px;
-  width: 100px;
-  height: 100px;
+h1 {
   font-size: 3rem;
+  margin: 20px 0 10px;
+  color: #ff66b2;
+}
+
+h2 {
+  font-size: 1.5rem;
+  margin-bottom: 20px;
+  color: #2de1fc;
+}
+
+.controls {
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
   justify-content: center;
-  transition: all 0.3s ease;
+  gap: 12px;
+  margin-bottom: 20px;
 }
 
-/* Bild in Zelle */
-.cell img {
-  max-width: 60px;
-  height: auto;
-  transition: height 0.3s ease;
+button, select {
+  background-color: #ffe6f0;
+  border: none;
+  border-radius: 18px;
+  padding: 10px 18px;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  color: #2d2d2d;
 }
 
-/* Nur Logos anzeigen Modus */
-.logos-only .cell span {
+button:hover {
+  background-color: #ffccde;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  gap: 10px;
+  justify-content: center;
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 0 10px;
+}
+
+.cell, .header-cell {
+  width: 80px;
+  height: 80px;
+  background-color: #f8f4ed;
+  border-radius: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 2rem;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.cell:hover {
+  transform: scale(1.05);
+}
+
+.cell.winning {
+  animation: winnerPulse 1s infinite alternate;
+}
+
+@keyframes winnerPulse {
+  0% { box-shadow: 0 0 10px #ff66b2; transform: scale(1); }
+  100% { box-shadow: 0 0 20px #ff66b2; transform: scale(1.05); }
+}
+
+.cell.X {
+  color: #ff66b2;
+  font-weight: bold;
+}
+
+.cell.O {
+  color: #2de1fc;
+  font-weight: bold;
+}
+
+.header-cell {
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: white;
+  flex-direction: column;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Toggle Switch */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 45px;
+  height: 24px;
+}
+
+.switch input { display: none; }
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #ffb3dd;
+  transition: 0.4s;
+  border-radius: 24px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.4s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: #ff66b2;
+}
+
+input:checked + .slider:before {
+  transform: translateX(21px);
+}
+
+/* Mobile Optimierung */
+@media (max-width: 600px) {
+  h1 {
+    font-size: 2rem;
+  }
+  h2 {
+    font-size: 1rem;
+  }
+  .cell, .header-cell {
+    width: 60px;
+    height: 60px;
+    font-size: 1.5rem;
+  }
+  .grid {
+    gap: 8px;
+  }
+}
+
+/* Nur Logos anzeigen */
+body.only-logos .header-cell span {
   display: none;
 }
 
-.logos-only .cell img {
-  max-width: 80px;
+body.only-logos .header-cell img {
+  width: 48px;
+  height: auto;
 }
 
-/* Responsive Anpassungen */
-@media (max-width: 768px) {
-  .board {
-    gap: 8px;
-    padding: 8px;
-  }
-
-  .cell {
-    width: 80px;
-    height: 80px;
-    font-size: 2rem;
-  }
-
-  .logos-only .cell img {
-    max-width: 70px;
-  }
+body.only-logos .header-cell {
+  padding: 6px;
 }
 
-@media (max-width: 500px) {
-  .cell {
-    width: 70px;
-    height: 70px;
-    font-size: 1.6rem;
-  }
+.status {
+  font-size: 1rem;
+  margin-top: 20px;
+  color: #ffe6f0;
+}
 
-  .logos-only .cell img {
-    max-width: 65px;
-  }
+/* Footer-Link */
+footer {
+  margin-top: 30px;
+  font-size: 0.8rem;
+  color: #ccc;
+}
 
-  .cell span {
-    display: none;
-  }
+footer a {
+  color: #ccc;
+  text-decoration: none;
+}
+
+footer a:hover {
+  text-decoration: underline;
 }

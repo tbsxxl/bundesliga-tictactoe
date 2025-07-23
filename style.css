@@ -231,7 +231,7 @@ body.only-logos .team-logo img {
 /* ---------------- PC: Logos-Modus größer ---------------- */
 @media screen and (min-width: 769px) {
   body.only-logos .grid-container {
-    grid-template-columns: repeat(3, 180px);
+    grid-template-columns: auto repeat(3, 180px);
   }
 
   body.only-logos .team-logo,
@@ -265,22 +265,20 @@ body.only-logos .team-logo img {
     height: 80px;
   }
 
+  .cell-content {
+    font-size: 2.2rem;
+  }
+
   body.only-logos .grid-container {
-    grid-template-columns: repeat(3, 80px);
-    margin-inline: auto;
+    grid-template-columns: auto repeat(3, 80px);
   }
 
   body.only-logos .team-logo,
-  body.only-logos .cell {
-    width: 80px;
-    height: 80px;
+  body.only-logos .corner-cell {
+    width: 60px; /* Breite reduziert, Höhe bleibt gleich */
   }
 
   body.only-logos .team-logo img {
-    width: 56px;
-  }
-
-  .cell-content {
-    font-size: 2.2rem;
+    width: 44px;
   }
 }

@@ -76,6 +76,8 @@ button:hover {
 }
 
 .grid-container {
+  margin-left: 0;
+
   display: grid;
   gap: 12px;
   justify-content: center;
@@ -206,6 +208,8 @@ button:hover {
     font-size: 48px;
   }
   .grid-container {
+  margin-left: 0;
+
     gap: 12px;
   }
   .cell, .team-logo {

@@ -1,46 +1,52 @@
-/* 🎨 Futuristischer Bauhaus-Stil */
+/* 🎯 Bold Grotesque Web Game UI */
 :root {
-  --bg-color: #000000;
-  --primary-orange: #FF5A00;
-  --primary-pink: #FF3CAC;
-  --primary-green: #C0FF00;
-  --primary-purple: #AA00FF;
-  --primary-turquoise: #00F0FF;
-  --primary-petrol: #006C6C;
-  --text-color: #ffffff;
+  --bg: #240041;
+  --accent-pink: #FF4FB2;
+  --accent-turquoise: #39D0C0;
+  --tile-bg: #F9F6EE;
+  --tile-text: #4B4B4B;
+  --btn-bg: #FFBEDA;
+  --btn-bg-active: #FF4FB2;
+  --btn-text: #141414;
 }
 
 body {
-  background-color: var(--bg-color);
-  color: var(--text-color);
-  font-family: 'Outfit', sans-serif;
+  background-color: var(--bg);
   margin: 0;
-  padding: 2rem;
+  font-family: 'Outfit', sans-serif;
+  color: white;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  min-height: 100vh;
+  padding: 2rem;
+  max-width: 1280px;
+  margin-inline: auto;
 }
 
 .container {
-  background: transparent;
-  max-width: 960px;
   width: 100%;
-  padding: 1rem;
-  position: relative;
-  z-index: 1;
+  padding: 0;
 }
 
 h1 {
-  font-size: 4rem;
-  font-weight: 900;
-  color: var(--primary-pink);
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  font-size: 72px;
+  color: var(--accent-pink);
   text-align: center;
-  line-height: 1;
-  margin: 2rem 0;
   text-transform: uppercase;
   letter-spacing: -1px;
+  margin: 2rem 0 1rem 0;
+}
+
+#currentPlayer {
+  font-size: 24px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--accent-turquoise);
+  margin-bottom: 1.5rem;
+  text-transform: uppercase;
 }
 
 .controls {
@@ -52,73 +58,83 @@ h1 {
 }
 
 button, select, label {
-  background: #ffffff;
-  color: #000000;
-  font-weight: bold;
-  font-size: 1rem;
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 50px;
-  cursor: pointer;
   font-family: 'Outfit', sans-serif;
+  font-size: 1rem;
+  font-weight: bold;
+  color: var(--btn-text);
+  background-color: var(--btn-bg);
+  padding: 0 24px;
+  height: 48px;
+  border: none;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: background 0.2s ease-in-out;
+}
+
+button:hover {
+  background-color: var(--btn-bg-active);
 }
 
 .grid-container {
   display: grid;
-  gap: 0.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
   justify-content: center;
-  margin-top: 1rem;
+  margin-bottom: 2rem;
 }
 
 .team-logo, .corner-cell {
+  width: 160px;
+  height: 160px;
+  border-radius: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
   font-weight: bold;
-  color: #fff;
-  background-color: var(--primary-purple);
-  padding: 0.5rem;
-  min-height: 64px;
-  text-transform: uppercase;
   font-size: 0.9rem;
+  color: white;
+  background-color: #444;
+  text-align: center;
 }
 
 .corner-cell {
-  background: transparent !important;
+  background-color: transparent !important;
   box-shadow: none !important;
   border: none !important;
 }
 
 .cell {
-  background: var(--primary-green);
-  border-radius: 12px;
-  min-width: 64px;
-  min-height: 64px;
+  width: 160px;
+  height: 160px;
+  border-radius: 24px;
+  background-color: var(--tile-bg);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background 0.2s ease;
+  transition: transform 150ms ease, opacity 150ms ease;
 }
 
 .cell:hover {
-  background: var(--primary-petrol);
+  transform: scale(1.02);
 }
 
 .cell-content {
-  font-size: 2rem;
-  font-weight: 900;
-  color: var(--bg-color);
+  font-size: 2.5rem;
+  font-weight: 800;
   font-family: 'Outfit', sans-serif;
+  color: var(--tile-text);
 }
 
 .player-x {
-  color: var(--primary-orange);
+  color: var(--accent-pink);
 }
 
 .player-o {
-  color: var(--primary-turquoise);
+  color: var(--accent-turquoise);
+  border: 2px solid var(--accent-turquoise);
+  border-radius: 50%;
+  padding: 0.3rem;
 }
 
 .correct {
@@ -126,27 +142,20 @@ button, select, label {
 }
 
 @keyframes win-glow {
-  0%   { background: var(--primary-pink); color: #000; }
-  50%  { background: var(--primary-orange); color: #000; }
-  100% { background: var(--primary-pink); color: #000; }
+  0% { background: var(--accent-pink); color: #000; }
+  50% { background: var(--accent-turquoise); color: #000; }
+  100% { background: var(--accent-pink); color: #000; }
 }
 
-#currentPlayer {
-  font-size: 1.5rem;
-  font-weight: 800;
-  margin-bottom: 1rem;
-  text-align: center;
-  color: var(--primary-green);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-@media screen and (max-width: 600px) {
-  .controls {
-    flex-direction: column;
-    align-items: center;
-  }
+@media screen and (max-width: 768px) {
   h1 {
-    font-size: 2.5rem;
+    font-size: 48px;
+  }
+  .grid-container {
+    gap: 12px;
+  }
+  .cell, .team-logo {
+    width: 120px;
+    height: 120px;
   }
 }

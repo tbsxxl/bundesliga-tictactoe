@@ -1,229 +1,169 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&display=swap');
+
 :root {
-  --blur-strength: 20px;
-  --main-bg: rgba(20, 25, 30, 0.6);
-  --highlight: rgba(255, 255, 255, 0.08);
-  --glass-border: rgba(255, 255, 255, 0.15);
-  --glass-shadow: rgba(0, 0, 0, 0.4);
-  --primary-glow: #ffffff;
-  --text-glow: #ffffff;
-  --accent: #7eb1d1;
+  --color-bg-start: #010030;
+  --color-bg-end: #160078;
+  --color-accent: #F042FF;
+  --color-cyan: #87F5F5;
+  --color-light: #FFE5F1;
+  --color-purple: #7226FF;
+  --cell-empty-bg: #160078;
+  --cell-empty-text: #F042FF;
 }
 
 body {
   margin: 0;
-  font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;
-  background: linear-gradient(135deg, #1f2a35, #3e4d5c);
-  color: var(--text-glow);
+  font-family: 'Outfit', sans-serif;
+  background: radial-gradient(circle at top left, var(--color-bg-start), var(--color-bg-end));
+  color: var(--color-light);
   display: flex;
-  flex-direction: column;
   justify-content: center;
   align-items: center;
+  padding: 2rem;
   min-height: 100vh;
+  overflow-x: hidden;
+  background-attachment: fixed;
 }
 
 .container {
-  backdrop-filter: blur(var(--blur-strength));
-  background: var(--main-bg);
-  border-radius: 1.5rem;
+  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 1rem;
   padding: 2rem;
-  box-shadow: 0 12px 28px var(--glass-shadow);
-  border: 1px solid var(--glass-border);
-  width: 95vw;
-  max-width: 720px;
-  text-align: center;
-  color: #ffffff;
+  box-shadow: 0 0 30px rgba(240, 66, 255, 0.2);
+  max-width: 960px;
+  width: 100%;
 }
 
 h1 {
-  font-size: 2.4rem;
+  text-align: center;
+  font-size: 2.5rem;
+  color: var(--color-accent);
+  text-shadow: 0 0 8px var(--color-accent);
   margin-bottom: 1.5rem;
-  color: var(--primary-glow);
-  text-shadow: 0 2px 8px rgba(0,0,0,0.6);
 }
 
 .controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
   margin-bottom: 1rem;
 }
 
-button, select {
-  background: var(--highlight);
-  color: #ffffff;
+button, select, label {
   font-size: 1rem;
   padding: 0.6rem 1.2rem;
-  border: 1px solid var(--glass-border);
-  border-radius: 0.75rem;
-  backdrop-filter: blur(10px);
+  border-radius: 1rem;
+  background: transparent;
+  color: var(--color-light);
+  border: 2px solid var(--color-cyan);
+  box-shadow: 0 0 8px var(--color-cyan);
   cursor: pointer;
-  margin-right: 0.5rem;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+  transition: all 0.3s ease;
+}
+
+button:hover, select:hover {
+  box-shadow: 0 0 12px var(--color-cyan);
+  background: rgba(135, 245, 245, 0.1);
 }
 
 .grid-container {
   display: grid;
-  gap: 0.5rem;
+  gap: 0.6rem;
   justify-content: center;
   align-items: center;
-  grid-auto-rows: 80px;
+  grid-auto-rows: 70px;
+  overflow-x: auto;
+  max-width: 100%;
+  margin-top: 1rem;
 }
 
-.team-logo, .empty {
+.team-logo {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--highlight);
-  border-radius: 1rem;
-  padding: 0.5rem;
-  min-height: 60px;
-  min-width: 120px;
-  font-size: 1rem;
+  padding: 0.4rem;
+  font-size: 0.9rem;
   font-weight: bold;
-  color: #ffffff;
-  text-shadow: 0 1px 4px rgba(0,0,0,0.7);
-  border: 1px solid var(--glass-border);
-  word-break: break-word;
-  text-align: center;
+  border-radius: 0.75rem;
+  background: #333;
+  color: white;
+  gap: 0.4rem;
+  min-width: 70px;
+  box-shadow: inset 0 0 10px rgba(0,0,0,0.4), 0 0 6px rgba(255,255,255,0.2);
+}
+
+.team-logo img {
+  height: 24px;
+  width: 24px;
+  object-fit: contain;
 }
 
 .cell {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 1rem;
-  min-height: 80px;
+  background: var(--cell-empty-bg);
+  border-radius: 0.75rem;
   display: flex;
   justify-content: center;
   align-items: center;
-  transition: background 0.3s ease;
+  min-width: 70px;
+  min-height: 70px;
+  box-shadow: inset 0 0 10px #000, 0 0 8px rgba(135, 245, 245, 0.4);
+  cursor: pointer;
+  transition: all 0.3s ease;
 }
 
-.cell input {
-  background: transparent;
-  border: none;
-  color: #ffffff;
-  font-size: 1.4rem;
-  font-weight: 600;
-  text-align: center;
-  outline: none;
-  width: 100%;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+.cell:hover {
+  box-shadow: 0 0 12px var(--color-cyan);
 }
 
-.cell input:focus {
-  background-color: rgba(255, 255, 255, 0.08);
-  border-radius: 0.5rem;
+.cell-content {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: var(--cell-empty-text);
+  text-shadow: 0 0 5px var(--cell-empty-text);
+  user-select: none;
+}
+
+.player-x {
+  color: #F042FF;
+  text-shadow: 0 0 6px #F042FF;
+}
+
+.player-o {
+  color: #87F5F5;
+  text-shadow: 0 0 6px #87F5F5;
 }
 
 .correct {
-  background: rgba(80, 255, 120, 0.25);
-  border: 1px solid #70e070;
-  box-shadow: inset 0 0 6px #70e070;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 0 8px #fff, 0 0 12px #fff;
 }
 
-/* Baseline bereits vorhanden – hier nur zusätzlicher mobiler Block */
+#result, #currentPlayer {
+  text-align: center;
+  margin-top: 1rem;
+  font-weight: bold;
+  font-size: 1.2rem;
+  color: var(--color-light);
+  text-shadow: 0 0 5px var(--color-accent);
+}
+
 @media screen and (max-width: 600px) {
-  .container {
-    padding: 1rem;
-    border-radius: 1rem;
-  }
-
-  h1 {
-    font-size: 1.8rem;
-  }
-
-  .controls {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.5rem;
-  }
-
-  button, select, label {
-    width: 100%;
-    font-size: 1rem;
-  }
-
   .grid-container {
     grid-auto-rows: 60px;
-    gap: 0.3rem;
-    overflow-x: auto;
   }
 
-  .team-logo, .empty {
-    min-width: auto;
-    max-width: 100px;
-    padding: 0.4rem 0.5rem;
-    font-size: 0.75rem;
-    justify-content: center;
-  }
-
-  .team-logo img {
-    height: 24px;
-    width: 24px;
-  }
-
-  .team-logo span {
-    display: none; /* auf Handy: wirklich nur Logo */
-  }
-
-  .cell {
+  .cell, .team-logo {
     min-width: 60px;
     min-height: 60px;
-  }
-
-  .cell input {
-    font-size: 1rem;
-  }
-}
-
-
-/* MOBILE OPTIMIERUNG */
-@media screen and (max-width: 600px) {
-  .container {
-    padding: 1rem;
-    border-radius: 1rem;
-  }
-
-  h1 {
-    font-size: 1.8rem;
-  }
-
-  .controls {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.5rem;
-  }
-
-  button, select, label {
-    width: 100%;
-    font-size: 1rem;
-  }
-
-  .grid-container {
-    grid-auto-rows: 60px;
-    gap: 0.3rem;
-    overflow-x: auto;
-  }
-
-  .team-logo, .empty {
-    min-width: auto;
-    max-width: 100px;
-    padding: 0.4rem 0.5rem;
-    font-size: 0.75rem;
-    justify-content: center;
-  }
-
-  .team-logo img {
-    height: 24px;
-    width: 24px;
   }
 
   .team-logo span {
     display: none;
   }
 
-  .cell {
-    min-width: 60px;
-    min-height: 60px;
-  }
-
-  .cell input {
-    font-size: 1rem;
+  .team-logo img {
+    margin: 0;
   }
 }

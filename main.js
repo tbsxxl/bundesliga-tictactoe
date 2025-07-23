@@ -79,20 +79,23 @@ function generateBoard() {
 }
 
 function checkWin(player) {
-  // Zeilen und Spalten
   for (let i = 0; i < boardSize; i++) {
     if (board[i].every(cell => cell === player)) return true;
     if (board.map(row => row[i]).every(cell => cell === player)) return true;
   }
-  // Diagonalen
   if (board.map((row, i) => row[i]).every(cell => cell === player)) return true;
   if (board.map((row, i) => row[boardSize - 1 - i]).every(cell => cell === player)) return true;
   return false;
 }
 
 function getRandomTeam() {
-  const teams = Object.values(teamData);
-  return teams[Math.floor(Math.random() * teams.length)];
+  const names = Object.keys(logoMap);
+  const name = names[Math.floor(Math.random() * names.length)];
+  return {
+    name: name,
+    logo: logoMap[name],
+    color: '#444'
+  };
 }
 
 window.onload = generateBoard;

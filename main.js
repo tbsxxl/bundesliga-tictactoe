@@ -9,17 +9,22 @@ const teams = [
 ];
 
 let boardState = [];
+let topTeams = [];
+let sideTeams = [];
 
 function shuffle(arr) {
   return [...arr].sort(() => Math.random() - 0.5);
 }
 
-function generateBoard() {
+function generateBoard(forceNewTeams = true) {
   currentPlayer = 'X';
   const size = parseInt(document.getElementById("gridSize").value);
-  const selected = shuffle(teams).slice(0, size * 2);
-  const top = selected.slice(0, size);
-  const left = selected.slice(size);
+
+  if (forceNewTeams || topTeams.length !== size || sideTeams.length !== size) {
+    const selected = shuffle(teams).slice(0, size * 2);
+    topTeams = selected.slice(0, size);
+    sideTeams = selected.slice(size);
+  }
 
   boardState = Array.from({ length: size }, () => Array(size).fill("?"));
 
@@ -31,12 +36,12 @@ function generateBoard() {
   corner.className = "team-logo";
   grid.appendChild(corner);
 
-  top.forEach(t => {
+  topTeams.forEach(t => {
     grid.appendChild(createTeamCell(t));
   });
 
   for (let r = 0; r < size; r++) {
-    grid.appendChild(createTeamCell(left[r]));
+    grid.appendChild(createTeamCell(sideTeams[r]));
     for (let c = 0; c < size; c++) {
       const cell = document.createElement("div");
       cell.className = "cell";
@@ -137,4 +142,6 @@ function checkWin(size) {
   document.getElementById("result").textContent = "";
 }
 
-window.onload = generateBoard;
+window.onload = () => generateBoard(true);
+
+document.getElementById("logoOnly").addEventListener("change", () => generateBoard(false));

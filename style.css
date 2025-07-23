@@ -1,39 +1,46 @@
+/* 🎨 Futuristischer Bauhaus-Stil */
 :root {
-  --bg-gradient: linear-gradient(145deg, #010030, #160078);
-  --highlight: #F042FF;
-  --cyan-glow: #87F5F5;
+  --bg-color: #000000;
+  --primary-orange: #FF5A00;
+  --primary-pink: #FF3CAC;
+  --primary-green: #C0FF00;
+  --primary-purple: #AA00FF;
+  --primary-turquoise: #00F0FF;
+  --primary-petrol: #006C6C;
+  --text-color: #ffffff;
 }
 
 body {
-  background: var(--bg-gradient);
-  margin: 0;
+  background-color: var(--bg-color);
+  color: var(--text-color);
   font-family: 'Outfit', sans-serif;
-  color: white;
+  margin: 0;
+  padding: 2rem;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
   min-height: 100vh;
-  padding: 1rem;
 }
 
 .container {
-  background: rgba(10, 10, 40, 0.8);
-  padding: 2rem;
-  border-radius: 2rem;
-  box-shadow: 0 0 30px rgba(240, 66, 255, 0.2);
-  width: 100%;
+  background: transparent;
   max-width: 960px;
+  width: 100%;
+  padding: 1rem;
   position: relative;
   z-index: 1;
 }
 
 h1 {
-  font-size: 2.5rem;
-  color: var(--highlight);
+  font-size: 4rem;
+  font-weight: 900;
+  color: var(--primary-pink);
   text-align: center;
-  margin-bottom: 1.5rem;
-  text-shadow: 0 0 10px var(--highlight);
+  line-height: 1;
+  margin: 2rem 0;
+  text-transform: uppercase;
+  letter-spacing: -1px;
 }
 
 .controls {
@@ -41,23 +48,19 @@ h1 {
   flex-wrap: wrap;
   justify-content: center;
   gap: 1rem;
-  margin-bottom: 1rem;
+  margin-bottom: 2rem;
 }
 
 button, select, label {
-  padding: 0.7rem 1.4rem;
-  border: none;
-  border-radius: 12px;
-  background: transparent;
-  color: white;
+  background: #ffffff;
+  color: #000000;
+  font-weight: bold;
   font-size: 1rem;
-  box-shadow: 0 0 10px var(--cyan-glow);
-  transition: 0.3s ease;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 50px;
   cursor: pointer;
-}
-
-button:hover, select:hover, label:hover {
-  box-shadow: 0 0 15px var(--highlight);
+  font-family: 'Outfit', sans-serif;
 }
 
 .grid-container {
@@ -73,10 +76,12 @@ button:hover, select:hover, label:hover {
   justify-content: center;
   border-radius: 12px;
   font-weight: bold;
-  color: white;
-  background-color: #444;
+  color: #fff;
+  background-color: var(--primary-purple);
   padding: 0.5rem;
   min-height: 64px;
+  text-transform: uppercase;
+  font-size: 0.9rem;
 }
 
 .corner-cell {
@@ -86,7 +91,7 @@ button:hover, select:hover, label:hover {
 }
 
 .cell {
-  background: #160078;
+  background: var(--primary-green);
   border-radius: 12px;
   min-width: 64px;
   min-height: 64px;
@@ -94,51 +99,54 @@ button:hover, select:hover, label:hover {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: box-shadow 0.3s ease;
+  transition: background 0.2s ease;
 }
 
 .cell:hover {
-  box-shadow: 0 0 12px rgba(255, 255, 255, 0.15);
+  background: var(--primary-petrol);
 }
 
 .cell-content {
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: #F042FF;
+  font-size: 2rem;
+  font-weight: 900;
+  color: var(--bg-color);
+  font-family: 'Outfit', sans-serif;
 }
 
-.player-x { color: #F042FF; }
-.player-o { color: #87F5F5; }
+.player-x {
+  color: var(--primary-orange);
+}
+
+.player-o {
+  color: var(--primary-turquoise);
+}
 
 .correct {
   animation: win-glow 1s ease-in-out infinite;
 }
 
 @keyframes win-glow {
-  0%   { text-shadow: 0 0 5px yellow; }
-  50%  { text-shadow: 0 0 20px yellow; }
-  100% { text-shadow: 0 0 5px yellow; }
+  0%   { background: var(--primary-pink); color: #000; }
+  50%  { background: var(--primary-orange); color: #000; }
+  100% { background: var(--primary-pink); color: #000; }
 }
 
 #currentPlayer {
-  font-size: 1.2rem;
-  font-weight: bold;
+  font-size: 1.5rem;
+  font-weight: 800;
   margin-bottom: 1rem;
   text-align: center;
-  background: linear-gradient(90deg, #F042FF, #87F5F5);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: glowText 1.5s ease-in-out infinite alternate;
-}
-
-@keyframes glowText {
-  from { text-shadow: 0 0 4px #fff; }
-  to   { text-shadow: 0 0 12px #F042FF; }
+  color: var(--primary-green);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 @media screen and (max-width: 600px) {
   .controls {
     flex-direction: column;
     align-items: center;
+  }
+  h1 {
+    font-size: 2.5rem;
   }
 }

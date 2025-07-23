@@ -9,7 +9,7 @@ const teams = [
 ];
 
 function shuffle(arr) {
-  return arr.sort(() => Math.random() - 0.5);
+  return [...arr].sort(() => Math.random() - 0.5);
 }
 
 function generateBoard() {
@@ -24,11 +24,17 @@ function generateBoard() {
   grid.innerHTML = "";
   grid.style.gridTemplateColumns = `repeat(${size + 1}, 1fr)`;
 
-  grid.appendChild(document.createElement("div"));
+  // Leere Ecke oben links
+  const corner = document.createElement("div");
+  corner.className = "team-logo";
+  grid.appendChild(corner);
+
+  // Kopfzeile (oben)
   top.forEach(t => {
     grid.appendChild(createTeamCell(t));
   });
 
+  // Zeilen
   for (let r = 0; r < size; r++) {
     grid.appendChild(createTeamCell(left[r]));
     for (let c = 0; c < size; c++) {
@@ -54,15 +60,16 @@ function generateBoard() {
   }
 
   document.getElementById("result").textContent = "";
-  document.getElementById("currentPlayer").textContent = `Spieler ${currentPlayer} ist am Zug`;
+  const info = document.getElementById("currentPlayer");
+  if (info) info.textContent = `Spieler ${currentPlayer} ist am Zug`;
 }
 
 function createTeamCell(name) {
   const div = document.createElement("div");
   div.className = "team-logo";
 
-  if (teamData[name]) {
-    div.style.backgroundColor = teamData[name].color;
+  if (typeof teamData !== "undefined" && teamData[name]) {
+    div.style.backgroundColor = teamData[name].color || "#444";
     div.style.color = "#ffffff";
 
     if (teamData[name].logo) {

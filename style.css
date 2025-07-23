@@ -128,6 +128,7 @@ body.only-logos .team-logo img {
   justify-content: center;
   cursor: pointer;
   transition: transform 150ms ease;
+  position: relative;
 }
 
 .cell:hover {
@@ -139,6 +140,7 @@ body.only-logos .team-logo img {
   font-weight: 900;
   font-family: 'Outfit', sans-serif;
   color: var(--tile-text);
+  z-index: 2;
 }
 
 .cell-content .material-symbols-outlined {
@@ -156,21 +158,20 @@ body.only-logos .team-logo img {
 }
 
 .correct {
-  animation: winner-glow 2s ease-in-out infinite;
+  animation: winner-glow 1.5s ease-in-out infinite;
+  box-shadow: 0 0 18px rgba(255, 79, 178, 0.4);
+  z-index: 1;
 }
 
 @keyframes winner-glow {
   0% {
-    transform: scale(1);
-    box-shadow: 0 0 0px rgba(255, 79, 178, 0.4);
+    box-shadow: 0 0 0px rgba(255, 79, 178, 0.0);
   }
   50% {
-    transform: scale(1.06);
-    box-shadow: 0 0 24px rgba(255, 79, 178, 0.8);
+    box-shadow: 0 0 18px rgba(255, 79, 178, 0.6);
   }
   100% {
-    transform: scale(1);
-    box-shadow: 0 0 0px rgba(255, 79, 178, 0.4);
+    box-shadow: 0 0 0px rgba(255, 79, 178, 0.0);
   }
 }
 
@@ -228,25 +229,25 @@ body.only-logos .team-logo img {
 
 @media screen and (max-width: 768px) {
   h1 {
-    font-size: 48px;
+    font-size: 44px;
+    margin-top: 1rem;
   }
 
   .grid-container {
-    gap: 6px;
-    grid-template-columns: 80px repeat(3, 80px);
-    padding-inline: 8px;
+    gap: 4px;
+    grid-template-columns: auto repeat(3, 72px);
   }
 
   .cell, .team-logo {
-    width: 80px;
-    height: 80px;
+    width: 72px;
+    height: 72px;
   }
 
   body.only-logos .team-logo img {
-    width: 64px;
+    width: 52px;
   }
 
   .cell-content {
-    font-size: 2.2rem;
+    font-size: 2rem;
   }
 }

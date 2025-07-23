@@ -1,4 +1,3 @@
-
 /* Bundesliga Tic Tac Toe – Aktuell überarbeitetes Style */
 
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&family=Material+Symbols+Outlined');
@@ -234,7 +233,8 @@ body.only-logos .team-logo img {
 
   .grid-container {
     gap: 6px;
-    grid-template-columns: auto repeat(3, 80px);
+    grid-template-columns: 80px repeat(3, 80px);
+    padding-inline: 8px;
   }
 
   .cell, .team-logo {
@@ -243,7 +243,7 @@ body.only-logos .team-logo img {
   }
 
   body.only-logos .team-logo img {
-    width: 56px;
+    width: 64px;
   }
 
   .cell-content {

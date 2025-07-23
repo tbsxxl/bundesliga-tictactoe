@@ -1,4 +1,4 @@
-// 🔁 main.js (aktualisiert)
+// 🔁 main.js (aktualisiert mit size-Tracking)
 let currentPlayer = 'X';
 
 const teams = [
@@ -12,6 +12,7 @@ const teams = [
 let boardState = [];
 let topTeams = [];
 let sideTeams = [];
+let lastSize = 0; // 👈 hinzugefügt
 
 function shuffle(arr) {
   return [...arr].sort(() => Math.random() - 0.5);
@@ -21,10 +22,11 @@ function generateBoard(forceNewTeams = true) {
   currentPlayer = 'X';
   const size = parseInt(document.getElementById("gridSize").value);
 
-  if (forceNewTeams || topTeams.length !== size || sideTeams.length !== size) {
+  if (forceNewTeams || size !== lastSize) {
     const selected = shuffle(teams).slice(0, size * 2);
     topTeams = selected.slice(0, size);
     sideTeams = selected.slice(size);
+    lastSize = size;
   }
 
   boardState = Array.from({ length: size }, () => Array(size).fill("?"));

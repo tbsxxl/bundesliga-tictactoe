@@ -249,7 +249,6 @@ body.only-logos .team-logo img {
   }
 }
 
-/* ---------------- Mobile optimiert ---------------- */
 @media screen and (max-width: 768px) {
   h1 {
     font-size: 48px;
@@ -257,7 +256,7 @@ body.only-logos .team-logo img {
 
   .grid-container {
     gap: 6px;
-    grid-template-columns: auto repeat(3, 80px);
+    grid-template-columns: 60px repeat(3, 80px); /* feste Breite für Ecke */
   }
 
   .cell, .team-logo {
@@ -265,8 +264,21 @@ body.only-logos .team-logo img {
     height: 80px;
   }
 
+  .corner-cell {
+    width: 60px; /* passt zur ersten Spalte */
+    height: 80px;
+  }
+
+  body.only-logos .team-logo img {
+    width: 56px;
+  }
+
+  .cell-content {
+    font-size: 2.2rem;
+  }
+
   body.only-logos .grid-container {
-    grid-template-columns: auto repeat(3, 80px);
+    grid-template-columns: 60px repeat(3, 80px); /* auch im Logo-Modus */
   }
 
   body.only-logos .team-logo,
@@ -275,12 +287,10 @@ body.only-logos .team-logo img {
     height: 80px;
   }
 
-  .cell-content {
-    font-size: 2.2rem;
+  body.only-logos .corner-cell {
+    width: 60px;
+    height: 80px;
   }
+}
 
-  /* 👇 Fix: Corner Cell für Mobile verkleinern */
-  .corner-cell {
-    width: 60px !important;
-  }
 }

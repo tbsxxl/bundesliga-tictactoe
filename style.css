@@ -47,10 +47,10 @@ button:hover {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 10px;
   justify-content: center;
-  max-width: 100%;
+  max-width: fit-content;
   margin: 0 auto;
   padding: 0 10px;
 }
@@ -154,6 +154,7 @@ input:checked + .slider:before {
     font-size: 1.5rem;
   }
   .grid {
+    grid-template-columns: repeat(3, 1fr);
     gap: 8px;
   }
 }
@@ -164,12 +165,12 @@ body.only-logos .header-cell span {
 }
 
 body.only-logos .header-cell img {
-  width: 48px;
+  width: 64px;
   height: auto;
 }
 
 body.only-logos .header-cell {
-  padding: 6px;
+  padding: 4px;
 }
 
 .status {

@@ -1,7 +1,29 @@
+const teamColors = {"FC Bayern München": "#dc052d", "Borussia Dortmund": "#f6cb00", "RB Leipzig": "#c8102e", "Bayer Leverkusen": "#e32219", "VfB Stuttgart": "#ed1c24", "Eintracht Frankfurt": "#ed1c24", "TSG Hoffenheim": "#005ca9", "1. FC Heidenheim": "#004494", "Werder Bremen": "#008557", "SC Freiburg": "#000000", "FC Augsburg": "#a51e36", "VfL Wolfsburg": "#65b32e", "Borussia Mönchengladbach": "#000000", "1. FC Union Berlin": "#d40511", "1. FSV Mainz 05": "#ed1c24", "1. FC Köln": "#e32219", "FC St. Pauli": "#6c2e1f", "Hamburger SV": "#0f1e44"};
+
 
 let currentPlayer = 'X';
 let boardSize = 3;
 let board = [];
+
+
+const allTeams = Object.keys(logoMap);
+let teamPool = [];
+
+function resetTeamPool() {
+  teamPool = [...allTeams];
+  teamPool.sort(() => Math.random() - 0.5); // shuffle
+}
+
+function getRandomTeam() {
+  if (teamPool.length === 0) resetTeamPool();
+  const name = teamPool.pop();
+  return {
+    name: name,
+    logo: logoMap[name],
+    color: teamColors[name] || '#444'
+  };
+}
+
 
 function generateBoard() {
   boardSize = parseInt(document.getElementById('gridSize').value);
@@ -79,23 +101,20 @@ function generateBoard() {
 }
 
 function checkWin(player) {
+  // Zeilen und Spalten
   for (let i = 0; i < boardSize; i++) {
     if (board[i].every(cell => cell === player)) return true;
     if (board.map(row => row[i]).every(cell => cell === player)) return true;
   }
+  // Diagonalen
   if (board.map((row, i) => row[i]).every(cell => cell === player)) return true;
   if (board.map((row, i) => row[boardSize - 1 - i]).every(cell => cell === player)) return true;
   return false;
 }
 
 function getRandomTeam() {
-  const names = Object.keys(logoMap);
-  const name = names[Math.floor(Math.random() * names.length)];
-  return {
-    name: name,
-    logo: logoMap[name],
-    color: '#444'
-  };
+  const teams = Object.values(teamData);
+  return teams[Math.floor(Math.random() * teams.length)];
 }
 
 window.onload = generateBoard;

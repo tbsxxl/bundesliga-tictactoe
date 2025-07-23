@@ -1,4 +1,4 @@
-/* Bundesliga Tic Tac Toe – Aktuell überarbeitetes Style */
+/* Bundesliga Tic Tac Toe – Optimiert für Desktop und Handy */
 
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&family=Material+Symbols+Outlined');
 
@@ -103,15 +103,6 @@ button:hover {
   overflow: hidden;
 }
 
-body.only-logos .team-logo span {
-  display: none;
-}
-
-body.only-logos .team-logo img {
-  width: 80px;
-  height: auto;
-}
-
 .corner-cell {
   background-color: transparent !important;
   box-shadow: none !important;
@@ -128,7 +119,6 @@ body.only-logos .team-logo img {
   justify-content: center;
   cursor: pointer;
   transition: transform 150ms ease;
-  position: relative;
 }
 
 .cell:hover {
@@ -140,7 +130,6 @@ body.only-logos .team-logo img {
   font-weight: 900;
   font-family: 'Outfit', sans-serif;
   color: var(--tile-text);
-  z-index: 2;
 }
 
 .cell-content .material-symbols-outlined {
@@ -158,19 +147,20 @@ body.only-logos .team-logo img {
 }
 
 .correct {
-  animation: winner-glow 1.5s ease-in-out infinite;
-  box-shadow: 0 0 18px rgba(255, 79, 178, 0.4);
-  z-index: 1;
+  animation: winner-glow 1.2s ease-in-out infinite;
 }
 
 @keyframes winner-glow {
   0% {
+    transform: scale(1);
     box-shadow: 0 0 0px rgba(255, 79, 178, 0.0);
   }
   50% {
-    box-shadow: 0 0 18px rgba(255, 79, 178, 0.6);
+    transform: scale(1.06);
+    box-shadow: 0 0 16px rgba(255, 79, 178, 0.6);
   }
   100% {
+    transform: scale(1);
     box-shadow: 0 0 0px rgba(255, 79, 178, 0.0);
   }
 }
@@ -227,27 +217,55 @@ body.only-logos .team-logo img {
   transform: translateX(22px);
 }
 
+/* Nur Logos anzeigen */
+body.only-logos .team-logo span {
+  display: none;
+}
+
+body.only-logos .team-logo img {
+  width: 110px;
+  height: auto;
+  transition: transform 0.2s ease;
+}
+
+/* RESPONSIVE: Handy-Optimierung */
 @media screen and (max-width: 768px) {
   h1 {
-    font-size: 44px;
-    margin-top: 1rem;
+    font-size: 36px;
+    margin: 1rem 0 0.5rem 0;
+  }
+
+  #currentPlayer {
+    font-size: 18px;
+    margin-bottom: 1rem;
+  }
+
+  .controls {
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .toggle-wrapper {
+    font-size: 0.9rem;
   }
 
   .grid-container {
     gap: 4px;
-    grid-template-columns: auto repeat(3, 72px);
+    grid-template-columns: auto repeat(3, 70px);
+    justify-content: center;
   }
 
   .cell, .team-logo {
-    width: 72px;
-    height: 72px;
+    width: 70px;
+    height: 70px;
+    border-radius: 16px;
+  }
+
+  .cell-content {
+    font-size: 1.8rem;
   }
 
   body.only-logos .team-logo img {
     width: 52px;
-  }
-
-  .cell-content {
-    font-size: 2rem;
   }
 }

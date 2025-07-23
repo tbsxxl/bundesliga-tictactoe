@@ -1,198 +1,236 @@
 
-/* Bundesliga Tic Tac Toe – Aktuell überarbeitetes Style */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&family=Material+Symbols+Outlined');
 
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap');
+:root {
+  --bg: #1A002E;
+  --accent-pink: #FF4FB2;
+  --accent-turquoise: #39D0C0;
+  --tile-bg: #F9F6EE;
+  --tile-text: #4B4B4B;
+  --btn-bg: #FFE6F3;
+  --btn-bg-active: #FF4FB2;
+  --btn-text: #141414;
+}
 
 body {
+  background-color: var(--bg);
   margin: 0;
-  font-family: 'Montserrat', sans-serif;
-  background-color: #200032;
-  color: #ff66b2;
-  text-align: center;
+  font-family: 'Outfit', sans-serif;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem;
+  max-width: 1280px;
+  margin-inline: auto;
+}
+
+.container {
+  width: 100%;
+  padding: 0;
 }
 
 h1 {
-  font-size: 3rem;
-  margin: 20px 0 10px;
-  color: #ff66b2;
+  font-size: 72px;
+  font-weight: 900;
+  color: var(--accent-pink);
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: -1px;
+  margin: 2rem 0 1rem 0;
 }
 
-h2 {
-  font-size: 1.5rem;
-  margin-bottom: 20px;
-  color: #2de1fc;
+#currentPlayer {
+  font-size: 24px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--accent-turquoise);
+  margin-bottom: 1.5rem;
+  text-transform: uppercase;
 }
 
 .controls {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 12px;
-  margin-bottom: 20px;
+  gap: 1rem;
+  margin-bottom: 2rem;
 }
 
 button, select {
-  background-color: #ffe6f0;
-  border: none;
-  border-radius: 18px;
-  padding: 10px 18px;
+  font-family: 'Outfit', sans-serif;
   font-size: 1rem;
   font-weight: bold;
+  color: var(--btn-text);
+  background-color: var(--btn-bg);
+  padding: 0 24px;
+  height: 48px;
+  border: none;
+  border-radius: 9999px;
   cursor: pointer;
-  color: #2d2d2d;
+  transition: background 0.2s ease-in-out;
 }
 
 button:hover {
-  background-color: #ffccde;
+  background-color: var(--btn-bg-active);
 }
 
-.grid {
+.grid-container {
   display: grid;
-  grid-template-columns: repeat(3, 80px);
-  grid-template-rows: repeat(4, 80px);
-  gap: 10px;
+  gap: 12px;
   justify-content: center;
-  margin: 0 auto;
-  padding: 0 10px;
+  margin-bottom: 2rem;
 }
 
-.cell, .header-cell {
-  width: 80px;
-  height: 80px;
-  background-color: #f8f4ed;
-  border-radius: 20px;
+.team-logo, .corner-cell {
+  width: 160px;
+  height: 160px;
+  border-radius: 24px;
   display: flex;
-  justify-content: center;
   align-items: center;
-  font-size: 2rem;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 0.9rem;
+  color: white;
+  background-color: #444;
+  text-align: center;
+}
+
+.corner-cell {
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+.cell {
+  width: 160px;
+  height: 160px;
+  border-radius: 32px;
+  background-color: var(--tile-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  transition: transform 0.2s ease;
+  transition: transform 150ms ease;
 }
 
 .cell:hover {
-  transform: scale(1.05);
+  transform: scale(1.02);
 }
 
-.cell.winning {
-  animation: winnerPulse 1s infinite alternate;
+.cell-content {
+  font-size: 4rem;
+  font-weight: 900;
+  font-family: 'Outfit', sans-serif;
+  color: var(--tile-text);
 }
 
-@keyframes winnerPulse {
-  0% { box-shadow: 0 0 10px #ff66b2; transform: scale(1); }
-  100% { box-shadow: 0 0 20px #ff66b2; transform: scale(1.05); }
+.cell-content .material-symbols-outlined {
+  font-size: 3rem;
+  color: var(--tile-text);
 }
 
-.cell.X {
-  color: #ff66b2;
+.player-x {
+  color: var(--accent-pink);
+}
+
+.player-o {
+  color: var(--accent-turquoise);
+  font-weight: 900;
+}
+
+.correct {
+  animation: win-glow 1s ease-in-out infinite;
+}
+
+@keyframes win-glow {
+  0% { background: var(--accent-pink); color: #000; }
+  50% { background: var(--accent-turquoise); color: #000; }
+  100% { background: var(--accent-pink); color: #000; }
+}
+
+.toggle-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
   font-weight: bold;
-}
-
-.cell.O {
-  color: #2de1fc;
-  font-weight: bold;
-}
-
-.header-cell {
-  font-size: 0.85rem;
-  font-weight: bold;
+  font-size: 1rem;
   color: white;
-  flex-direction: column;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-/* Toggle Switch */
 .switch {
   position: relative;
   display: inline-block;
-  width: 45px;
-  height: 24px;
+  width: 48px;
+  height: 26px;
 }
 
-.switch input { display: none; }
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
 
 .slider {
   position: absolute;
   cursor: pointer;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background-color: #ffb3dd;
-  transition: 0.4s;
-  border-radius: 24px;
+  top: 0; left: 0;
+  right: 0; bottom: 0;
+  background-color: var(--btn-bg);
+  border-radius: 9999px;
+  transition: 0.3s;
 }
 
-.slider:before {
+.slider::before {
   position: absolute;
   content: "";
-  height: 18px;
-  width: 18px;
+  height: 20px;
+  width: 20px;
   left: 3px;
   bottom: 3px;
-  background-color: white;
-  transition: 0.4s;
+  background-color: #141414;
   border-radius: 50%;
+  transition: 0.3s;
 }
 
-input:checked + .slider {
-  background-color: #ff66b2;
+.switch input:checked + .slider {
+  background-color: var(--btn-bg-active);
 }
 
-input:checked + .slider:before {
-  transform: translateX(21px);
+.switch input:checked + .slider::before {
+  transform: translateX(22px);
 }
 
-/* Mobile Optimierung */
-@media (max-width: 600px) {
+@media screen and (max-width: 768px) {
   h1 {
-    font-size: 2rem;
+    font-size: 48px;
   }
-  h2 {
-    font-size: 1rem;
+  .grid-container {
+    gap: 12px;
   }
-  .cell, .header-cell {
-    width: 60px;
-    height: 60px;
-    font-size: 1.5rem;
-  }
-  .grid {
-    grid-template-columns: repeat(3, 60px);
-    grid-template-rows: repeat(4, 60px);
-    gap: 8px;
+  .cell, .team-logo {
+    width: 120px;
+    height: 120px;
   }
 }
 
-/* Nur Logos anzeigen */
-body.only-logos .header-cell span {
-  display: none;
+
+
+.correct {
+  animation: winner-glow 2s ease-in-out infinite;
 }
 
-body.only-logos .header-cell img {
-  width: 64px;
-  height: auto;
-}
-
-body.only-logos .header-cell {
-  padding: 4px;
-}
-
-.status {
-  font-size: 1rem;
-  margin-top: 20px;
-  color: #ffe6f0;
-}
-
-/* Footer-Link */
-footer {
-  margin-top: 30px;
-  font-size: 0.8rem;
-  color: #ccc;
-}
-
-footer a {
-  color: #ccc;
-  text-decoration: none;
-}
-
-footer a:hover {
-  text-decoration: underline;
+@keyframes winner-glow {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0px rgba(255, 79, 178, 0.4);
+  }
+  50% {
+    transform: scale(1.06);
+    box-shadow: 0 0 24px rgba(255, 79, 178, 0.8);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0px rgba(255, 79, 178, 0.4);
+  }
 }

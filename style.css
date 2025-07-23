@@ -47,10 +47,9 @@ button:hover {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, 80px);
   gap: 10px;
   justify-content: center;
-  max-width: fit-content;
   margin: 0 auto;
   padding: 0 10px;
 }
@@ -154,7 +153,7 @@ input:checked + .slider:before {
     font-size: 1.5rem;
   }
   .grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, 60px);
     gap: 8px;
   }
 }

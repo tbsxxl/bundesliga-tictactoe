@@ -1,3 +1,4 @@
+// 🔁 main.js (aktualisiert)
 let currentPlayer = 'X';
 
 const teams = [
@@ -33,7 +34,7 @@ function generateBoard(forceNewTeams = true) {
   grid.style.gridTemplateColumns = `repeat(${size + 1}, 1fr)`;
 
   const corner = document.createElement("div");
-  corner.className = "team-logo";
+  corner.className = "corner-cell";
   grid.appendChild(corner);
 
   topTeams.forEach(t => {

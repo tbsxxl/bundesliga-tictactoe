@@ -1,4 +1,3 @@
-
 const teams = [
   "FC Bayern München", "Borussia Dortmund", "RB Leipzig", "Bayer Leverkusen",
   "VfB Stuttgart", "Eintracht Frankfurt", "TSG Hoffenheim", "1. FC Heidenheim",
@@ -53,14 +52,25 @@ function generateBoard() {
     for (let c = 0; c < size; c++) {
       const cell = document.createElement("div");
       cell.className = "cell";
-      const input = document.createElement("input");
-      input.type = "text";
-      input.placeholder = "?";
-      input.addEventListener("input", () => {
-        input.value = input.value.toUpperCase();
+      const span = document.createElement("span");
+      span.className = "cell-content";
+      span.textContent = "?";
+
+      cell.appendChild(span);
+      cell.addEventListener("click", () => {
+        if (span.textContent === "?") {
+          span.textContent = "X";
+          span.className = "cell-content player-x";
+        } else if (span.textContent === "X") {
+          span.textContent = "O";
+          span.className = "cell-content player-o";
+        } else if (span.textContent === "O") {
+          span.textContent = "?";
+          span.className = "cell-content";
+        }
         checkWin(size);
       });
-      cell.appendChild(input);
+
       grid.appendChild(cell);
     }
   }
@@ -99,8 +109,8 @@ function createTeamCell(name) {
 }
 
 function checkWin(size) {
-  const inputs = Array.from(document.querySelectorAll(".cell input"));
-  const values = inputs.map(i => i.value.trim());
+  const cells = Array.from(document.querySelectorAll(".cell-content"));
+  const values = cells.map(s => s.textContent.trim());
   const lines = [];
 
   for (let i = 0; i < size; i++) {
@@ -113,15 +123,16 @@ function checkWin(size) {
 
   for (const line of lines) {
     const first = values[line[0]];
-    if (first && line.every(idx => values[idx] === first)) {
+    if (first && first !== "?" && line.every(idx => values[idx] === first)) {
       line.forEach(idx => {
-        inputs[idx].classList.add("correct");
-        inputs[idx].disabled = true;
+        cells[idx].classList.add("correct");
       });
-      document.getElementById("result").textContent = "🏆 Tic Tac Toe!";
+      document.getElementById("result").textContent = `🏆 Spieler ${first} gewinnt!`;
       return;
     }
   }
+
+  document.getElementById("result").textContent = "";
 }
 
 window.onload = generateBoard;

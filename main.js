@@ -1,107 +1,127 @@
-let currentPlayer = 'X';
-let boardSize = 3;
-let board = [];
 
-function shuffle(array) {
-  const result = [...array];
-  for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [result[i], result[j]] = [result[j], result[i]];
-  }
-  return result;
+const teams = [
+  "FC Bayern München", "Borussia Dortmund", "RB Leipzig", "Bayer Leverkusen",
+  "VfB Stuttgart", "Eintracht Frankfurt", "TSG Hoffenheim", "1. FC Heidenheim",
+  "Werder Bremen", "SC Freiburg", "FC Augsburg", "VfL Wolfsburg",
+  "Borussia Mönchengladbach", "1. FC Union Berlin", "1. FSV Mainz 05",
+  "1. FC Köln", "FC St. Pauli", "Hamburger SV"
+];
+
+const teamColors = {
+  "FC Bayern München": "#dc052d",
+  "Borussia Dortmund": "#fdee00",
+  "RB Leipzig": "#c8102e",
+  "Bayer Leverkusen": "#e32219",
+  "VfB Stuttgart": "#ed1c24",
+  "Eintracht Frankfurt": "#ed1c24",
+  "TSG Hoffenheim": "#005ca9",
+  "1. FC Heidenheim": "#004494",
+  "Werder Bremen": "#008557",
+  "SC Freiburg": "#000000",
+  "FC Augsburg": "#a51e36",
+  "VfL Wolfsburg": "#65b32e",
+  "Borussia Mönchengladbach": "#000000",
+  "1. FC Union Berlin": "#d40511",
+  "1. FSV Mainz 05": "#ed1c24",
+  "1. FC Köln": "#e32219",
+  "FC St. Pauli": "#6c2e1f",
+  "Hamburger SV": "#0f1e44"
+};
+
+function shuffle(arr) {
+  return arr.sort(() => Math.random() - 0.5);
 }
 
 function generateBoard() {
-  boardSize = parseInt(document.getElementById('gridSize').value);
-  const grid = document.getElementById('grid');
-  const logoOnly = document.getElementById('logoOnly').checked;
-  const allTeams = Object.values(teamData);
-  const uniqueTeams = shuffle(allTeams).slice(0, boardSize * 2);
-  const rowTeams = uniqueTeams.slice(0, boardSize);
-  const colTeams = uniqueTeams.slice(boardSize, boardSize * 2);
+  const size = parseInt(document.getElementById("gridSize").value);
+  const required = size * 2;
+  const selected = shuffle(teams).slice(0, required);
+  const top = selected.slice(0, size);
+  const left = selected.slice(size);
 
-  grid.innerHTML = '';
-  grid.style.gridTemplateColumns = `repeat(${boardSize + 1}, auto)`;
+  const grid = document.getElementById("grid");
+  grid.innerHTML = "";
+  grid.style.gridTemplateColumns = `repeat(${size + 1}, 1fr)`;
 
-  board = Array.from({ length: boardSize }, () => Array(boardSize).fill(''));
+  grid.appendChild(document.createElement("div"));
+  top.forEach(t => {
+    grid.appendChild(createTeamCell(t));
+  });
 
-  // Spaltenköpfe
-  grid.appendChild(document.createElement('div')); // leere Ecke
-  for (let col = 0; col < boardSize; col++) {
-    const team = colTeams[col];
-    const header = document.createElement('div');
-    header.className = 'team-logo';
-    header.style.backgroundColor = team.color;
-    if (logoOnly) {
-      const img = document.createElement('img');
-      img.src = team.logo;
-      img.alt = '';
-      header.appendChild(img);
-    } else {
-      header.innerHTML = `<img src="${team.logo}" alt="" /> <span>${team.name}</span>`;
-    }
-    grid.appendChild(header);
-  }
-
-  for (let row = 0; row < boardSize; row++) {
-    const team = rowTeams[row];
-    const sideCell = document.createElement('div');
-    sideCell.className = 'team-logo';
-    sideCell.style.backgroundColor = team.color;
-    if (logoOnly) {
-      const img = document.createElement('img');
-      img.src = team.logo;
-      img.alt = '';
-      sideCell.appendChild(img);
-    } else {
-      sideCell.innerHTML = `<img src="${team.logo}" alt="" /> <span>${team.name}</span>`;
-    }
-    grid.appendChild(sideCell);
-
-    for (let col = 0; col < boardSize; col++) {
-      const cell = document.createElement('div');
-      cell.className = 'cell';
-      const span = document.createElement('span');
-      span.className = 'cell-content';
-      span.textContent = '?';
-
-      cell.addEventListener('click', () => {
-        if (span.textContent === '?') {
-          span.textContent = currentPlayer;
-          span.className = `cell-content player-${currentPlayer.toLowerCase()}`;
-          board[row][col] = currentPlayer;
-          if (checkWin(currentPlayer)) {
-            document.getElementById('result').textContent = `Spieler ${currentPlayer} gewinnt!`;
-          } else {
-            currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
-          }
-        } else if (span.textContent === 'X') {
-          span.textContent = 'O';
-          span.className = 'cell-content player-o';
-          board[row][col] = 'O';
-        } else if (span.textContent === 'O') {
-          span.textContent = '?';
-          span.className = 'cell-content';
-          board[row][col] = '';
-        }
+  for (let r = 0; r < size; r++) {
+    grid.appendChild(createTeamCell(left[r]));
+    for (let c = 0; c < size; c++) {
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      const input = document.createElement("input");
+      input.type = "text";
+      input.placeholder = "?";
+      input.addEventListener("input", () => {
+        input.value = input.value.toUpperCase();
+        checkWin(size);
       });
-
-      cell.appendChild(span);
+      cell.appendChild(input);
       grid.appendChild(cell);
     }
   }
 
-  document.getElementById('result').textContent = '';
+  document.getElementById("result").textContent = "";
 }
 
-function checkWin(player) {
-  for (let i = 0; i < boardSize; i++) {
-    if (board[i].every(cell => cell === player)) return true;
-    if (board.map(row => row[i]).every(cell => cell === player)) return true;
+function createTeamCell(name) {
+  const div = document.createElement("div");
+  div.className = "team-logo";
+
+  if (teamColors[name]) {
+    div.style.backgroundColor = teamColors[name];
+    div.style.color = "#ffffff";
   }
-  if (board.map((row, i) => row[i]).every(cell => cell === player)) return true;
-  if (board.map((row, i) => row[boardSize - 1 - i]).every(cell => cell === player)) return true;
-  return false;
+
+  if (logoMap[name]) {
+    const img = document.createElement("img");
+    img.src = logoMap[name];
+    img.alt = name;
+    img.style.height = "28px";
+    img.style.width = "28px";
+    img.style.objectFit = "contain";
+    img.style.marginRight = "0.5rem";
+    div.appendChild(img);
+  }
+
+  const logoOnly = document.getElementById("logoOnly");
+  if (!logoOnly || !logoOnly.checked) {
+    const span = document.createElement("span");
+    span.innerText = name;
+    div.appendChild(span);
+  }
+
+  return div;
+}
+
+function checkWin(size) {
+  const inputs = Array.from(document.querySelectorAll(".cell input"));
+  const values = inputs.map(i => i.value.trim());
+  const lines = [];
+
+  for (let i = 0; i < size; i++) {
+    lines.push([...Array(size).keys()].map(j => i * size + j));
+    lines.push([...Array(size).keys()].map(j => j * size + i));
+  }
+
+  lines.push([...Array(size).keys()].map(i => i * size + i));
+  lines.push([...Array(size).keys()].map(i => i * size + (size - 1 - i)));
+
+  for (const line of lines) {
+    const first = values[line[0]];
+    if (first && line.every(idx => values[idx] === first)) {
+      line.forEach(idx => {
+        inputs[idx].classList.add("correct");
+        inputs[idx].disabled = true;
+      });
+      document.getElementById("result").textContent = "🏆 Tic Tac Toe!";
+      return;
+    }
+  }
 }
 
 window.onload = generateBoard;

@@ -1,4 +1,4 @@
-/* Bundesliga Tic Tac Toe – Aktuell überarbeitetes Style mit mobilem Fix */
+/* Bundesliga Tic Tac Toe – Aktuell überarbeitetes Style */
 
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&family=Material+Symbols+Outlined');
 
@@ -24,6 +24,7 @@ body {
   padding: 2rem;
   max-width: 1280px;
   margin-inline: auto;
+  overflow-x: hidden;
 }
 
 .container {
@@ -228,42 +229,35 @@ body.only-logos .team-logo img {
 
 @media screen and (max-width: 768px) {
   h1 {
-    font-size: 42px;
-  }
-
-  #currentPlayer {
-    font-size: 16px;
-  }
-
-  .controls {
-    flex-direction: column;
-    gap: 0.75rem;
-    margin-bottom: 1rem;
+    font-size: 48px;
   }
 
   .grid-container {
     gap: 4px;
-    grid-template-columns: 56px repeat(3, 64px);
-    justify-content: center;
+    grid-template-columns: auto repeat(3, 72px);
   }
 
   .cell, .team-logo {
-    width: 64px;
-    height: 64px;
+    width: 72px;
+    height: 72px;
+    border-radius: 16px;
   }
 
   body.only-logos .team-logo img {
-    width: 40px;
-    height: auto;
+    width: 48px;
   }
 
   .cell-content {
     font-size: 1.8rem;
   }
 
+  #currentPlayer {
+    font-size: 18px;
+  }
+
   button, select {
     height: 40px;
-    font-size: 0.9rem;
     padding: 0 16px;
+    font-size: 0.9rem;
   }
 }

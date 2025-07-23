@@ -1,4 +1,3 @@
-
 :root {
   --bg-gradient: linear-gradient(145deg, #010030, #160078);
   --highlight: #F042FF;
@@ -110,7 +109,16 @@ button:hover, select:hover, label:hover {
 
 .player-x { color: #F042FF; }
 .player-o { color: #87F5F5; }
-.correct { text-shadow: 0 0 10px yellow; }
+
+.correct {
+  animation: win-glow 1s ease-in-out infinite;
+}
+
+@keyframes win-glow {
+  0%   { text-shadow: 0 0 5px yellow; }
+  50%  { text-shadow: 0 0 20px yellow; }
+  100% { text-shadow: 0 0 5px yellow; }
+}
 
 #currentPlayer {
   font-size: 1.2rem;
@@ -125,7 +133,7 @@ button:hover, select:hover, label:hover {
 
 @keyframes glowText {
   from { text-shadow: 0 0 4px #fff; }
-  to { text-shadow: 0 0 12px #F042FF; }
+  to   { text-shadow: 0 0 12px #F042FF; }
 }
 
 @media screen and (max-width: 600px) {

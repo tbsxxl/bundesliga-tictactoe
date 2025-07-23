@@ -1,4 +1,4 @@
-// 🔁 main.js (aktualisiert mit size-Tracking)
+// 🧠 main.fixed.js — Teams ändern sich nur, wenn sie sollen
 let currentPlayer = 'X';
 
 const teams = [
@@ -12,7 +12,7 @@ const teams = [
 let boardState = [];
 let topTeams = [];
 let sideTeams = [];
-let lastSize = 0; // 👈 hinzugefügt
+let lastSize = 0;
 
 function shuffle(arr) {
   return [...arr].sort(() => Math.random() - 0.5);
@@ -26,7 +26,7 @@ function generateBoard(forceNewTeams = true) {
     const selected = shuffle(teams).slice(0, size * 2);
     topTeams = selected.slice(0, size);
     sideTeams = selected.slice(size);
-    lastSize = size;
+    lastSize = size; // ✅ nur hier setzen
   }
 
   boardState = Array.from({ length: size }, () => Array(size).fill("?"));
@@ -39,9 +39,7 @@ function generateBoard(forceNewTeams = true) {
   corner.className = "corner-cell";
   grid.appendChild(corner);
 
-  topTeams.forEach(t => {
-    grid.appendChild(createTeamCell(t));
-  });
+  topTeams.forEach(t => grid.appendChild(createTeamCell(t)));
 
   for (let r = 0; r < size; r++) {
     grid.appendChild(createTeamCell(sideTeams[r]));
@@ -146,5 +144,4 @@ function checkWin(size) {
 }
 
 window.onload = () => generateBoard(true);
-
 document.getElementById("logoOnly").addEventListener("change", () => generateBoard(false));

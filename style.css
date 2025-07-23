@@ -1,10 +1,9 @@
-
 :root {
   --blur-strength: 20px;
-  --main-bg: rgba(20, 25, 30, 0.7);
-  --highlight: rgba(255, 255, 255, 0.06);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --glass-shadow: rgba(0, 0, 0, 0.3);
+  --main-bg: rgba(20, 25, 30, 0.6);
+  --highlight: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.15);
+  --glass-shadow: rgba(0, 0, 0, 0.4);
   --primary-glow: #ffffff;
   --text-glow: #ffffff;
   --accent: #7eb1d1;
@@ -13,43 +12,40 @@
 body {
   margin: 0;
   font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;
-  background: radial-gradient(circle at top left, #1a2736, #0f1722);
+  background: linear-gradient(135deg, #1f2a35, #3e4d5c);
   color: var(--text-glow);
   display: flex;
   flex-direction: column;
+  justify-content: center;
   align-items: center;
   min-height: 100vh;
 }
 
 .container {
-  margin: 2rem 1rem;
   backdrop-filter: blur(var(--blur-strength));
   background: var(--main-bg);
   border-radius: 1.5rem;
   padding: 2rem;
-  box-shadow: 0 8px 20px var(--glass-shadow);
+  box-shadow: 0 12px 28px var(--glass-shadow);
   border: 1px solid var(--glass-border);
-  width: 100%;
-  max-width: 960px;
+  width: 95vw;
+  max-width: 720px;
   text-align: center;
+  color: #ffffff;
 }
 
 h1 {
-  font-size: 2.2rem;
-  margin-bottom: 1.2rem;
+  font-size: 2.4rem;
+  margin-bottom: 1.5rem;
   color: var(--primary-glow);
   text-shadow: 0 2px 8px rgba(0,0,0,0.6);
 }
 
 .controls {
-  margin-bottom: 1.2rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.8rem;
-  justify-content: center;
+  margin-bottom: 1rem;
 }
 
-button, select, label {
+button, select {
   background: var(--highlight);
   color: #ffffff;
   font-size: 1rem;
@@ -58,12 +54,8 @@ button, select, label {
   border-radius: 0.75rem;
   backdrop-filter: blur(10px);
   cursor: pointer;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-  appearance: none;
-}
-
-select {
-  padding-right: 2rem;
+  margin-right: 0.5rem;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.3);
 }
 
 .grid-container {
@@ -71,10 +63,7 @@ select {
   gap: 0.5rem;
   justify-content: center;
   align-items: center;
-  grid-auto-rows: 72px;
-  overflow-x: auto;
-  max-width: 100%;
-  padding-bottom: 0.5rem;
+  grid-auto-rows: 80px;
 }
 
 .team-logo, .empty {
@@ -85,52 +74,42 @@ select {
   border-radius: 1rem;
   padding: 0.5rem;
   min-height: 60px;
-  min-width: 72px;
-  font-size: 0.9rem;
-  font-weight: 600;
+  min-width: 120px;
+  font-size: 1rem;
+  font-weight: bold;
   color: #ffffff;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+  text-shadow: 0 1px 4px rgba(0,0,0,0.7);
   border: 1px solid var(--glass-border);
-  gap: 0.5rem;
-  max-width: 140px;
-  flex-direction: row;
-}
-
-.team-logo img {
-  height: 28px;
-  width: 28px;
-  object-fit: contain;
-  flex-shrink: 0;
-}
-
-.team-logo span {
-  font-size: 0.95rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
+  word-break: break-word;
+  text-align: center;
 }
 
 .cell {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.05);
   border-radius: 1rem;
-  min-height: 72px;
-  min-width: 72px;
+  min-height: 80px;
   display: flex;
   justify-content: center;
   align-items: center;
   transition: background 0.3s ease;
 }
 
-.cell-content {
-  font-size: 1.8rem;
-  font-weight: bold;
-  user-select: none;
+.cell input {
+  background: transparent;
+  border: none;
   color: #ffffff;
+  font-size: 1.4rem;
+  font-weight: 600;
+  text-align: center;
+  outline: none;
+  width: 100%;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.6);
 }
 
-.player-x { color: #4da6ff; }
-.player-o { color: #ff6699; }
+.cell input:focus {
+  background-color: rgba(255, 255, 255, 0.08);
+  border-radius: 0.5rem;
+}
 
 .correct {
   background: rgba(80, 255, 120, 0.25);
@@ -138,28 +117,96 @@ select {
   box-shadow: inset 0 0 6px #70e070;
 }
 
+/* Baseline bereits vorhanden – hier nur zusätzlicher mobiler Block */
 @media screen and (max-width: 600px) {
+  .container {
+    padding: 1rem;
+    border-radius: 1rem;
+  }
+
   h1 {
-    font-size: 1.6rem;
+    font-size: 1.8rem;
   }
 
   .controls {
     flex-direction: column;
     align-items: stretch;
-    gap: 0.6rem;
+    gap: 0.5rem;
+  }
+
+  button, select, label {
+    width: 100%;
+    font-size: 1rem;
   }
 
   .grid-container {
     grid-auto-rows: 60px;
     gap: 0.3rem;
+    overflow-x: auto;
   }
 
   .team-logo, .empty {
-    padding: 0.3rem;
+    min-width: auto;
+    max-width: 100px;
+    padding: 0.4rem 0.5rem;
+    font-size: 0.75rem;
+    justify-content: center;
+  }
+
+  .team-logo img {
+    height: 24px;
+    width: 24px;
+  }
+
+  .team-logo span {
+    display: none; /* auf Handy: wirklich nur Logo */
+  }
+
+  .cell {
     min-width: 60px;
-    max-width: 60px;
     min-height: 60px;
+  }
+
+  .cell input {
+    font-size: 1rem;
+  }
+}
+
+
+/* MOBILE OPTIMIERUNG */
+@media screen and (max-width: 600px) {
+  .container {
+    padding: 1rem;
+    border-radius: 1rem;
+  }
+
+  h1 {
+    font-size: 1.8rem;
+  }
+
+  .controls {
     flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  button, select, label {
+    width: 100%;
+    font-size: 1rem;
+  }
+
+  .grid-container {
+    grid-auto-rows: 60px;
+    gap: 0.3rem;
+    overflow-x: auto;
+  }
+
+  .team-logo, .empty {
+    min-width: auto;
+    max-width: 100px;
+    padding: 0.4rem 0.5rem;
+    font-size: 0.75rem;
+    justify-content: center;
   }
 
   .team-logo img {
@@ -176,12 +223,7 @@ select {
     min-height: 60px;
   }
 
-  .cell-content {
-    font-size: 1.1rem;
-  }
-
-  button, select, label {
-    font-size: 0.95rem;
-    padding: 0.5rem 1rem;
+  .cell input {
+    font-size: 1rem;
   }
 }

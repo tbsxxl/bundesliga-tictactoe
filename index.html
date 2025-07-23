@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -9,23 +10,30 @@
 <body>
   <div class="container">
     <h1>Bundesliga Tic Tac Toe</h1>
-    <div class="controls">
-      <div id="currentPlayer" style="margin: 0.5rem 0; font-weight: bold;"></div>
+    <div id="currentPlayer"></div>
 
+    <div class="controls">
       <select id="gridSize">
         <option value="3">3×3</option>
-        <option value="4">4×4</option>
+        <option value="4" selected>4×4</option>
         <option value="5">5×5</option>
       </select>
+
       <button onclick="generateBoard()">Neue Runde</button>
-      <label style="display: flex; align-items: center; gap: 0.4rem;">
-        <input type="checkbox" id="logoOnly" onchange="generateBoard()" />
-        Nur Logos anzeigen
-      </label>
+
+      <div class="toggle-wrapper">
+        <span>Nur Logos anzeigen</span>
+        <label class="switch">
+          <input type="checkbox" id="logoOnly" onchange="generateBoard(false)">
+          <span class="slider"></span>
+        </label>
+      </div>
     </div>
+
     <div id="grid" class="grid-container"></div>
     <p id="result"></p>
   </div>
+
   <script src="logos.js"></script>
   <script src="main.js"></script>
 </body>

@@ -216,22 +216,37 @@ button:hover {
   transform: translateX(22px);
 }
 
+/* Nur Logos anzeigen */
+body.only-logos .team-logo {
+  font-size: 0;
+  padding: 0;
+}
+
+body.only-logos .team-logo img {
+  width: 80%;
+  height: auto;
+}
+
 @media screen and (max-width: 768px) {
   h1 {
     font-size: 48px;
   }
 
   .grid-container {
-    gap: 8px;
-    grid-template-columns: auto repeat(3, 80px);
+    gap: 6px;
+    grid-template-columns: auto repeat(3, 70px);
   }
 
   .cell, .team-logo {
-    width: 80px;
-    height: 80px;
+    width: 70px;
+    height: 70px;
   }
 
   .cell-content {
-    font-size: 2.5rem;
+    font-size: 2rem;
+  }
+
+  body.only-logos .team-logo img {
+    width: 90%;
   }
 }

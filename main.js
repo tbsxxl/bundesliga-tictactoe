@@ -28,11 +28,16 @@ const teamColors = {
   "Hamburger SV": "#0f1e44"
 };
 
+let currentPlayer = "X";
+let gameOver = false;
+
 function shuffle(arr) {
   return arr.sort(() => Math.random() - 0.5);
 }
 
 function generateBoard() {
+  currentPlayer = "X";
+  gameOver = false;
   const size = parseInt(document.getElementById("gridSize").value);
   const required = size * 2;
   const selected = shuffle(teams).slice(0, required);
@@ -53,19 +58,37 @@ function generateBoard() {
     for (let c = 0; c < size; c++) {
       const cell = document.createElement("div");
       cell.className = "cell";
-      const input = document.createElement("input");
-      input.type = "text";
-      input.placeholder = "?";
-      input.addEventListener("input", () => {
-        input.value = input.value.toUpperCase();
-        checkWin(size);
-      });
-      cell.appendChild(input);
+      const content = document.createElement("div");
+      content.className = "cell-content";
+      content.innerText = "";
+      cell.appendChild(content);
+
+      cell.addEventListener("click", () => toggleCell(cell, content, size));
       grid.appendChild(cell);
     }
   }
 
   document.getElementById("result").textContent = "";
+}
+
+function toggleCell(cell, content, size) {
+  if (gameOver) return;
+
+  if (content.innerText === "") {
+    // Leeres Feld → Spieler setzt Zeichen
+    content.innerText = currentPlayer;
+    content.className = "cell-content " + (currentPlayer === "X" ? "player-x" : "player-o");
+    checkWinByGrid(size);
+    if (!gameOver) {
+      currentPlayer = currentPlayer === "X" ? "O" : "X";
+    }
+  } else {
+    // Belegtes Feld → wird gelöscht
+    content.innerText = "";
+    content.className = "cell-content";
+    document.getElementById("result").innerText = "";
+    gameOver = false;
+  }
 }
 
 function createTeamCell(name) {
@@ -98,10 +121,11 @@ function createTeamCell(name) {
   return div;
 }
 
-function checkWin(size) {
-  const inputs = Array.from(document.querySelectorAll(".cell input"));
-  const values = inputs.map(i => i.value.trim());
-  const lines = [];
+function checkWinByGrid(size) {
+  const grid = Array.from(document.querySelectorAll(".cell .cell-content"))
+    .map(el => el.innerText.trim());
+
+  let lines = [];
 
   for (let i = 0; i < size; i++) {
     lines.push([...Array(size).keys()].map(j => i * size + j));
@@ -112,16 +136,17 @@ function checkWin(size) {
   lines.push([...Array(size).keys()].map(i => i * size + (size - 1 - i)));
 
   for (const line of lines) {
-    const first = values[line[0]];
-    if (first && line.every(idx => values[idx] === first)) {
-      line.forEach(idx => {
-        inputs[idx].classList.add("correct");
-        inputs[idx].disabled = true;
-      });
-      document.getElementById("result").textContent = "🏆 Tic Tac Toe!";
-      return;
+    const first = grid[line[0]];
+    if (first && line.every(idx => grid[idx] === first)) {
+      const contents = document.querySelectorAll(".cell .cell-content");
+      line.forEach(idx => contents[idx].classList.add("correct"));
+      document.getElementById("result").innerText = `🏆 Spieler ${first} gewinnt!`;
+      gameOver = true;
+      return true;
     }
   }
+
+  return false;
 }
 
 window.onload = generateBoard;

@@ -1,3 +1,4 @@
+
 let currentPlayer = 'X';
 
 const teams = [
@@ -7,6 +8,8 @@ const teams = [
   "Borussia Mönchengladbach", "1. FC Union Berlin", "1. FSV Mainz 05",
   "1. FC Köln", "FC St. Pauli", "Hamburger SV"
 ];
+
+let boardState = [];
 
 function shuffle(arr) {
   return [...arr].sort(() => Math.random() - 0.5);
@@ -18,6 +21,8 @@ function generateBoard() {
   const selected = shuffle(teams).slice(0, size * 2);
   const top = selected.slice(0, size);
   const left = selected.slice(size);
+
+  boardState = Array.from({ length: size }, () => Array(size).fill("?"));
 
   const grid = document.getElementById("grid");
   grid.innerHTML = "";
@@ -44,14 +49,26 @@ function generateBoard() {
       cell.addEventListener("click", () => {
         if (span.textContent === "?") {
           span.textContent = currentPlayer;
-          span.className = `cell-content player-${currentPlayer.toLowerCase()}`;
-          cell.style.boxShadow = currentPlayer === 'X'
-            ? "0 0 8px #F042FF"
-            : "0 0 8px #87F5F5";
-          checkWin(size);
-          currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
-          document.getElementById("currentPlayer").textContent = `Spieler ${currentPlayer} ist am Zug`;
+        } else if (span.textContent === "X") {
+          span.textContent = "O";
+        } else if (span.textContent === "O") {
+          span.textContent = "?";
         }
+
+        // Farbe & Klasse setzen
+        if (span.textContent === "X") {
+          span.className = "cell-content player-x";
+          cell.style.boxShadow = "0 0 8px #F042FF";
+        } else if (span.textContent === "O") {
+          span.className = "cell-content player-o";
+          cell.style.boxShadow = "0 0 8px #87F5F5";
+        } else {
+          span.className = "cell-content";
+          cell.style.boxShadow = "none";
+        }
+
+        boardState[r][c] = span.textContent;
+        checkWin(size);
       });
 
       grid.appendChild(cell);

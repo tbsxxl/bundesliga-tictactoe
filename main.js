@@ -1,4 +1,3 @@
-
 let currentPlayer = 'X';
 
 const teams = [
@@ -49,26 +48,27 @@ function generateBoard() {
       cell.addEventListener("click", () => {
         if (span.textContent === "?") {
           span.textContent = currentPlayer;
+          span.className = `cell-content player-${currentPlayer.toLowerCase()}`;
+          cell.style.boxShadow = currentPlayer === 'X'
+            ? "0 0 8px #F042FF"
+            : "0 0 8px #87F5F5";
+          boardState[r][c] = currentPlayer;
+          checkWin(size);
+          currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+          document.getElementById("currentPlayer").textContent = `Spieler ${currentPlayer} ist am Zug`;
         } else if (span.textContent === "X") {
           span.textContent = "O";
-        } else if (span.textContent === "O") {
-          span.textContent = "?";
-        }
-
-        // Farbe & Klasse setzen
-        if (span.textContent === "X") {
-          span.className = "cell-content player-x";
-          cell.style.boxShadow = "0 0 8px #F042FF";
-        } else if (span.textContent === "O") {
           span.className = "cell-content player-o";
           cell.style.boxShadow = "0 0 8px #87F5F5";
-        } else {
+          boardState[r][c] = "O";
+          checkWin(size);
+        } else if (span.textContent === "O") {
+          span.textContent = "?";
           span.className = "cell-content";
           cell.style.boxShadow = "none";
+          boardState[r][c] = "?";
+          checkWin(size);
         }
-
-        boardState[r][c] = span.textContent;
-        checkWin(size);
       });
 
       grid.appendChild(cell);

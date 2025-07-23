@@ -1,3 +1,4 @@
+/* Bundesliga Tic Tac Toe – Style Update mit Grid-Fix */
 
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&family=Material+Symbols+Outlined');
 
@@ -77,7 +78,8 @@ button:hover {
 
 .grid-container {
   display: grid;
-  gap: 12px;
+  grid-template-columns: 160px repeat(3, 160px);
+  gap: 8px;
   justify-content: center;
   margin-bottom: 2rem;
 }
@@ -201,6 +203,15 @@ button:hover {
   transform: translateX(22px);
 }
 
+body.only-logos .team-logo span {
+  display: none;
+}
+
+body.only-logos .team-logo img {
+  width: 96px;
+  height: auto;
+}
+
 @media screen and (max-width: 768px) {
   h1 {
     font-size: 48px;
@@ -213,8 +224,6 @@ button:hover {
     height: 120px;
   }
 }
-
-
 
 .correct {
   animation: winner-glow 2s ease-in-out infinite;

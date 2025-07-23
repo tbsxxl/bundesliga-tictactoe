@@ -1,4 +1,4 @@
-/* Bundesliga Tic Tac Toe – Optimiert für Desktop und Handy */
+/* Bundesliga Tic Tac Toe – Aktuell überarbeitetes Style mit mobilem Fix */
 
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&family=Material+Symbols+Outlined');
 
@@ -103,6 +103,15 @@ button:hover {
   overflow: hidden;
 }
 
+body.only-logos .team-logo span {
+  display: none;
+}
+
+body.only-logos .team-logo img {
+  width: 80px;
+  height: auto;
+}
+
 .corner-cell {
   background-color: transparent !important;
   box-shadow: none !important;
@@ -147,21 +156,21 @@ button:hover {
 }
 
 .correct {
-  animation: winner-glow 1.2s ease-in-out infinite;
+  animation: winner-glow 2s ease-in-out infinite;
 }
 
 @keyframes winner-glow {
   0% {
     transform: scale(1);
-    box-shadow: 0 0 0px rgba(255, 79, 178, 0.0);
+    box-shadow: 0 0 0px rgba(255, 79, 178, 0.4);
   }
   50% {
     transform: scale(1.06);
-    box-shadow: 0 0 16px rgba(255, 79, 178, 0.6);
+    box-shadow: 0 0 24px rgba(255, 79, 178, 0.8);
   }
   100% {
     transform: scale(1);
-    box-shadow: 0 0 0px rgba(255, 79, 178, 0.0);
+    box-shadow: 0 0 0px rgba(255, 79, 178, 0.4);
   }
 }
 
@@ -217,55 +226,44 @@ button:hover {
   transform: translateX(22px);
 }
 
-/* Nur Logos anzeigen */
-body.only-logos .team-logo span {
-  display: none;
-}
-
-body.only-logos .team-logo img {
-  width: 110px;
-  height: auto;
-  transition: transform 0.2s ease;
-}
-
-/* RESPONSIVE: Handy-Optimierung */
 @media screen and (max-width: 768px) {
   h1 {
-    font-size: 36px;
-    margin: 1rem 0 0.5rem 0;
+    font-size: 42px;
   }
 
   #currentPlayer {
-    font-size: 18px;
-    margin-bottom: 1rem;
+    font-size: 16px;
   }
 
   .controls {
-    gap: 0.5rem;
+    flex-direction: column;
+    gap: 0.75rem;
     margin-bottom: 1rem;
-  }
-
-  .toggle-wrapper {
-    font-size: 0.9rem;
   }
 
   .grid-container {
     gap: 4px;
-    grid-template-columns: auto repeat(3, 70px);
+    grid-template-columns: 56px repeat(3, 64px);
     justify-content: center;
   }
 
   .cell, .team-logo {
-    width: 70px;
-    height: 70px;
-    border-radius: 16px;
+    width: 64px;
+    height: 64px;
+  }
+
+  body.only-logos .team-logo img {
+    width: 40px;
+    height: auto;
   }
 
   .cell-content {
     font-size: 1.8rem;
   }
 
-  body.only-logos .team-logo img {
-    width: 52px;
+  button, select {
+    height: 40px;
+    font-size: 0.9rem;
+    padding: 0 16px;
   }
 }

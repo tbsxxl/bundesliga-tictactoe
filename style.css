@@ -1,136 +1,229 @@
-
 :root {
-  --bg-gradient: linear-gradient(145deg, #010030, #160078);
-  --highlight: #F042FF;
-  --cyan-glow: #87F5F5;
+  --blur-strength: 20px;
+  --main-bg: rgba(20, 25, 30, 0.6);
+  --highlight: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.15);
+  --glass-shadow: rgba(0, 0, 0, 0.4);
+  --primary-glow: #ffffff;
+  --text-glow: #ffffff;
+  --accent: #7eb1d1;
 }
 
 body {
-  background: var(--bg-gradient);
   margin: 0;
-  font-family: 'Outfit', sans-serif;
-  color: white;
+  font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;
+  background: linear-gradient(135deg, #1f2a35, #3e4d5c);
+  color: var(--text-glow);
   display: flex;
   flex-direction: column;
+  justify-content: center;
   align-items: center;
-  justify-content: flex-start;
   min-height: 100vh;
-  padding: 1rem;
 }
 
 .container {
-  background: rgba(10, 10, 40, 0.8);
+  backdrop-filter: blur(var(--blur-strength));
+  background: var(--main-bg);
+  border-radius: 1.5rem;
   padding: 2rem;
-  border-radius: 2rem;
-  box-shadow: 0 0 30px rgba(240, 66, 255, 0.2);
-  width: 100%;
-  max-width: 960px;
-  position: relative;
-  z-index: 1;
+  box-shadow: 0 12px 28px var(--glass-shadow);
+  border: 1px solid var(--glass-border);
+  width: 95vw;
+  max-width: 720px;
+  text-align: center;
+  color: #ffffff;
 }
 
 h1 {
-  font-size: 2.5rem;
-  color: var(--highlight);
-  text-align: center;
+  font-size: 2.4rem;
   margin-bottom: 1.5rem;
-  text-shadow: 0 0 10px var(--highlight);
+  color: var(--primary-glow);
+  text-shadow: 0 2px 8px rgba(0,0,0,0.6);
 }
 
 .controls {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 1rem;
   margin-bottom: 1rem;
 }
 
-button, select, label {
-  padding: 0.7rem 1.4rem;
-  border: none;
-  border-radius: 12px;
-  background: transparent;
-  color: white;
+button, select {
+  background: var(--highlight);
+  color: #ffffff;
   font-size: 1rem;
-  box-shadow: 0 0 10px var(--cyan-glow);
-  transition: 0.3s ease;
+  padding: 0.6rem 1.2rem;
+  border: 1px solid var(--glass-border);
+  border-radius: 0.75rem;
+  backdrop-filter: blur(10px);
   cursor: pointer;
-}
-
-button:hover, select:hover, label:hover {
-  box-shadow: 0 0 15px var(--highlight);
+  margin-right: 0.5rem;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.3);
 }
 
 .grid-container {
   display: grid;
   gap: 0.5rem;
   justify-content: center;
-  margin-top: 1rem;
+  align-items: center;
+  grid-auto-rows: 80px;
 }
 
-.team-logo, .corner-cell {
+.team-logo, .empty {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
-  font-weight: bold;
-  color: white;
-  background-color: #444;
+  background: var(--highlight);
+  border-radius: 1rem;
   padding: 0.5rem;
-  min-height: 64px;
-}
-
-.corner-cell {
-  background: transparent !important;
-  box-shadow: none !important;
-  border: none !important;
+  min-height: 60px;
+  min-width: 120px;
+  font-size: 1rem;
+  font-weight: bold;
+  color: #ffffff;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.7);
+  border: 1px solid var(--glass-border);
+  word-break: break-word;
+  text-align: center;
 }
 
 .cell {
-  background: #160078;
-  border-radius: 12px;
-  min-width: 64px;
-  min-height: 64px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 1rem;
+  min-height: 80px;
   display: flex;
-  align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition: box-shadow 0.3s ease;
+  align-items: center;
+  transition: background 0.3s ease;
 }
 
-.cell:hover {
-  box-shadow: 0 0 12px rgba(255, 255, 255, 0.15);
-}
-
-.cell-content {
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: #F042FF;
-}
-
-.player-x { color: #F042FF; }
-.player-o { color: #87F5F5; }
-.correct { text-shadow: 0 0 10px yellow; }
-
-#currentPlayer {
-  font-size: 1.2rem;
-  font-weight: bold;
-  margin-bottom: 1rem;
+.cell input {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 1.4rem;
+  font-weight: 600;
   text-align: center;
-  background: linear-gradient(90deg, #F042FF, #87F5F5);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: glowText 1.5s ease-in-out infinite alternate;
+  outline: none;
+  width: 100%;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.6);
 }
 
-@keyframes glowText {
-  from { text-shadow: 0 0 4px #fff; }
-  to { text-shadow: 0 0 12px #F042FF; }
+.cell input:focus {
+  background-color: rgba(255, 255, 255, 0.08);
+  border-radius: 0.5rem;
 }
 
+.correct {
+  background: rgba(80, 255, 120, 0.25);
+  border: 1px solid #70e070;
+  box-shadow: inset 0 0 6px #70e070;
+}
+
+/* Baseline bereits vorhanden – hier nur zusätzlicher mobiler Block */
 @media screen and (max-width: 600px) {
+  .container {
+    padding: 1rem;
+    border-radius: 1rem;
+  }
+
+  h1 {
+    font-size: 1.8rem;
+  }
+
   .controls {
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  button, select, label {
+    width: 100%;
+    font-size: 1rem;
+  }
+
+  .grid-container {
+    grid-auto-rows: 60px;
+    gap: 0.3rem;
+    overflow-x: auto;
+  }
+
+  .team-logo, .empty {
+    min-width: auto;
+    max-width: 100px;
+    padding: 0.4rem 0.5rem;
+    font-size: 0.75rem;
+    justify-content: center;
+  }
+
+  .team-logo img {
+    height: 24px;
+    width: 24px;
+  }
+
+  .team-logo span {
+    display: none; /* auf Handy: wirklich nur Logo */
+  }
+
+  .cell {
+    min-width: 60px;
+    min-height: 60px;
+  }
+
+  .cell input {
+    font-size: 1rem;
+  }
+}
+
+
+/* MOBILE OPTIMIERUNG */
+@media screen and (max-width: 600px) {
+  .container {
+    padding: 1rem;
+    border-radius: 1rem;
+  }
+
+  h1 {
+    font-size: 1.8rem;
+  }
+
+  .controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  button, select, label {
+    width: 100%;
+    font-size: 1rem;
+  }
+
+  .grid-container {
+    grid-auto-rows: 60px;
+    gap: 0.3rem;
+    overflow-x: auto;
+  }
+
+  .team-logo, .empty {
+    min-width: auto;
+    max-width: 100px;
+    padding: 0.4rem 0.5rem;
+    font-size: 0.75rem;
+    justify-content: center;
+  }
+
+  .team-logo img {
+    height: 24px;
+    width: 24px;
+  }
+
+  .team-logo span {
+    display: none;
+  }
+
+  .cell {
+    min-width: 60px;
+    min-height: 60px;
+  }
+
+  .cell input {
+    font-size: 1rem;
   }
 }

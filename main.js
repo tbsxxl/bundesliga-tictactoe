@@ -1,4 +1,3 @@
-let currentPlayer = 'X';
 
 const teams = [
   "FC Bayern München", "Borussia Dortmund", "RB Leipzig", "Bayer Leverkusen",
@@ -8,101 +7,85 @@ const teams = [
   "1. FC Köln", "FC St. Pauli", "Hamburger SV"
 ];
 
-let boardState = [];
-let topTeams = [];
-let sideTeams = [];
+const teamColors = {
+  "FC Bayern München": "#dc052d",
+  "Borussia Dortmund": "#fdee00",
+  "RB Leipzig": "#c8102e",
+  "Bayer Leverkusen": "#e32219",
+  "VfB Stuttgart": "#ed1c24",
+  "Eintracht Frankfurt": "#ed1c24",
+  "TSG Hoffenheim": "#005ca9",
+  "1. FC Heidenheim": "#004494",
+  "Werder Bremen": "#008557",
+  "SC Freiburg": "#000000",
+  "FC Augsburg": "#a51e36",
+  "VfL Wolfsburg": "#65b32e",
+  "Borussia Mönchengladbach": "#000000",
+  "1. FC Union Berlin": "#d40511",
+  "1. FSV Mainz 05": "#ed1c24",
+  "1. FC Köln": "#e32219",
+  "FC St. Pauli": "#6c2e1f",
+  "Hamburger SV": "#0f1e44"
+};
 
 function shuffle(arr) {
-  return [...arr].sort(() => Math.random() - 0.5);
+  return arr.sort(() => Math.random() - 0.5);
 }
 
-function generateBoard(forceNewTeams = true) {
-  currentPlayer = 'X';
+function generateBoard() {
   const size = parseInt(document.getElementById("gridSize").value);
-
-  if (forceNewTeams || topTeams.length !== size || sideTeams.length !== size) {
-    const selected = shuffle(teams).slice(0, size * 2);
-    topTeams = selected.slice(0, size);
-    sideTeams = selected.slice(size);
-  }
-
-  boardState = Array.from({ length: size }, () => Array(size).fill("?"));
+  const required = size * 2;
+  const selected = shuffle(teams).slice(0, required);
+  const top = selected.slice(0, size);
+  const left = selected.slice(size);
 
   const grid = document.getElementById("grid");
   grid.innerHTML = "";
   grid.style.gridTemplateColumns = `repeat(${size + 1}, 1fr)`;
 
-  const corner = document.createElement("div");
-  corner.className = "team-logo";
-  grid.appendChild(corner);
-
-  topTeams.forEach(t => {
+  grid.appendChild(document.createElement("div"));
+  top.forEach(t => {
     grid.appendChild(createTeamCell(t));
   });
 
   for (let r = 0; r < size; r++) {
-    grid.appendChild(createTeamCell(sideTeams[r]));
+    grid.appendChild(createTeamCell(left[r]));
     for (let c = 0; c < size; c++) {
       const cell = document.createElement("div");
       cell.className = "cell";
-      const span = document.createElement("span");
-      span.className = "cell-content";
-      span.textContent = "?";
-
-      cell.appendChild(span);
-      cell.addEventListener("click", () => {
-        if (span.textContent === "?") {
-          span.textContent = currentPlayer;
-          span.className = `cell-content player-${currentPlayer.toLowerCase()}`;
-          cell.style.boxShadow = currentPlayer === 'X'
-            ? "0 0 8px #F042FF"
-            : "0 0 8px #87F5F5";
-          boardState[r][c] = currentPlayer;
-          checkWin(size);
-          currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
-          document.getElementById("currentPlayer").textContent = `Spieler ${currentPlayer} ist am Zug`;
-        } else if (span.textContent === "X") {
-          span.textContent = "O";
-          span.className = "cell-content player-o";
-          cell.style.boxShadow = "0 0 8px #87F5F5";
-          boardState[r][c] = "O";
-          checkWin(size);
-        } else if (span.textContent === "O") {
-          span.textContent = "?";
-          span.className = "cell-content";
-          cell.style.boxShadow = "none";
-          boardState[r][c] = "?";
-          checkWin(size);
-        }
+      const input = document.createElement("input");
+      input.type = "text";
+      input.placeholder = "?";
+      input.addEventListener("input", () => {
+        input.value = input.value.toUpperCase();
+        checkWin(size);
       });
-
+      cell.appendChild(input);
       grid.appendChild(cell);
     }
   }
 
   document.getElementById("result").textContent = "";
-  const info = document.getElementById("currentPlayer");
-  if (info) info.textContent = `Spieler ${currentPlayer} ist am Zug`;
 }
 
 function createTeamCell(name) {
   const div = document.createElement("div");
   div.className = "team-logo";
 
-  if (typeof teamData !== "undefined" && teamData[name]) {
-    div.style.backgroundColor = teamData[name].color || "#444";
+  if (teamColors[name]) {
+    div.style.backgroundColor = teamColors[name];
     div.style.color = "#ffffff";
+  }
 
-    if (teamData[name].logo) {
-      const img = document.createElement("img");
-      img.src = teamData[name].logo;
-      img.alt = name;
-      img.style.height = "28px";
-      img.style.width = "28px";
-      img.style.objectFit = "contain";
-      img.style.marginRight = "0.5rem";
-      div.appendChild(img);
-    }
+  if (logoMap[name]) {
+    const img = document.createElement("img");
+    img.src = logoMap[name];
+    img.alt = name;
+    img.style.height = "28px";
+    img.style.width = "28px";
+    img.style.objectFit = "contain";
+    img.style.marginRight = "0.5rem";
+    div.appendChild(img);
   }
 
   const logoOnly = document.getElementById("logoOnly");
@@ -116,8 +99,8 @@ function createTeamCell(name) {
 }
 
 function checkWin(size) {
-  const cells = Array.from(document.querySelectorAll(".cell-content"));
-  const values = cells.map(s => s.textContent.trim());
+  const inputs = Array.from(document.querySelectorAll(".cell input"));
+  const values = inputs.map(i => i.value.trim());
   const lines = [];
 
   for (let i = 0; i < size; i++) {
@@ -130,18 +113,15 @@ function checkWin(size) {
 
   for (const line of lines) {
     const first = values[line[0]];
-    if (first && first !== "?" && line.every(idx => values[idx] === first)) {
+    if (first && line.every(idx => values[idx] === first)) {
       line.forEach(idx => {
-        cells[idx].classList.add("correct");
+        inputs[idx].classList.add("correct");
+        inputs[idx].disabled = true;
       });
-      document.getElementById("result").textContent = `🏆 Spieler ${first} gewinnt!`;
+      document.getElementById("result").textContent = "🏆 Tic Tac Toe!";
       return;
     }
   }
-
-  document.getElementById("result").textContent = "";
 }
 
-window.onload = () => generateBoard(true);
-
-document.getElementById("logoOnly").addEventListener("change", () => generateBoard(false));
+window.onload = generateBoard;

@@ -140,7 +140,7 @@ function checkWin(size) {
       return;
     }
   }
-}
+
 
 
   document.getElementById("result").textContent = "";

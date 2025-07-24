@@ -157,27 +157,27 @@ body.only-logos .team-logo img {
   font-weight: 900;
 }
 
-/* --- Gewinnen: Spieler X (Pink) --- */
-@keyframes winner-glow-x {
-  0%   { transform: scale(1);   box-shadow: 0 0 0px rgba(255, 79, 178, 0.4); }
-  50%  { transform: scale(1.06); box-shadow: 0 0 24px rgba(255, 79, 178, 0.8); }
-  100% { transform: scale(1);   box-shadow: 0 0 0px rgba(255, 79, 178, 0.4); }
-}
-
-/* --- Gewinnen: Spieler O (Türkis) --- */
-@keyframes winner-glow-o {
-  0%   { transform: scale(1);   box-shadow: 0 0 0px rgba(57, 208, 192, 0.4); }
-  50%  { transform: scale(1.06); box-shadow: 0 0 24px rgba(57, 208, 192, 0.8); }
-  100% { transform: scale(1);   box-shadow: 0 0 0px rgba(57, 208, 192, 0.4); }
-}
 
 .correct-x {
-  animation: winner-glow-x 2s ease-in-out infinite;
+  animation: glow-x 2s ease-in-out infinite;
 }
 
 .correct-o {
-  animation: winner-glow-o 2s ease-in-out infinite;
+  animation: glow-o 2s ease-in-out infinite;
 }
+
+@keyframes glow-x {
+  0%   { transform: scale(1);   text-shadow: 0 0 0px rgba(255, 79, 178, 0.3); }
+  50%  { transform: scale(1.15);text-shadow: 0 0 12px rgba(255, 79, 178, 0.8); }
+  100% { transform: scale(1);   text-shadow: 0 0 0px rgba(255, 79, 178, 0.3); }
+}
+
+@keyframes glow-o {
+  0%   { transform: scale(1);   text-shadow: 0 0 0px rgba(57, 208, 192, 0.3); }
+  50%  { transform: scale(1.15);text-shadow: 0 0 12px rgba(57, 208, 192, 0.8); }
+  100% { transform: scale(1);   text-shadow: 0 0 0px rgba(57, 208, 192, 0.3); }
+}
+
 
 
 

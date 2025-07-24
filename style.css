@@ -301,13 +301,16 @@ body.only-logos .team-logo img {
 
   #result {
   font-size: 48px;
-  font-weight: 900;
+  font-weight: 700;
   color: var(--accent-pink);
-  text-align: center;
   text-transform: uppercase;
   letter-spacing: -1px;
   margin-top: 1.5rem;
   animation: pop-in 0.4s ease-out;
+  text-align: center;
+  text-transform: uppercase;
+  font-family: 'Outfit', sans-serif;
+  margin-top: 1.5rem;
 }
 
 #result.player-o {

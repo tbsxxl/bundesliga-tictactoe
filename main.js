@@ -122,23 +122,26 @@ function checkWin(size) {
   const lines = [];
 
   for (let i = 0; i < size; i++) {
-    lines.push([...Array(size).keys()].map(j => i * size + j));
-    lines.push([...Array(size).keys()].map(j => j * size + i));
+    lines.push([...Array(size).keys()].map(j => i * size + j));           // Zeilen
+    lines.push([...Array(size).keys()].map(j => j * size + i));           // Spalten
   }
 
-  lines.push([...Array(size).keys()].map(i => i * size + i));
-  lines.push([...Array(size).keys()].map(i => i * size + (size - 1 - i)));
+  lines.push([...Array(size).keys()].map(i => i * size + i));             // Diagonale links oben nach rechts unten
+  lines.push([...Array(size).keys()].map(i => i * size + (size - 1 - i))); // Diagonale rechts oben nach links unten
 
   for (const line of lines) {
     const first = values[line[0]];
     if (first && first !== "?" && line.every(idx => values[idx] === first)) {
       line.forEach(idx => {
-        cells[idx].classList.add("correct");
+        cells[idx].classList.remove("correct", "correct-x", "correct-o");
+        cells[idx].classList.add(first === "X" ? "correct-x" : "correct-o");
       });
       document.getElementById("result").textContent = `🏆 Spieler ${first} gewinnt!`;
       return;
     }
   }
+}
+
 
   document.getElementById("result").textContent = "";
 }

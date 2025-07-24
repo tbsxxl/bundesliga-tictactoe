@@ -136,8 +136,10 @@ function checkWin(size) {
         cells[idx].classList.remove("correct", "correct-x", "correct-o");
         cells[idx].classList.add(first === "X" ? "correct-x" : "correct-o");
       });
-      document.getElementById("result").textContent = `🏆 Spieler ${first} gewinnt!`;
-      return;
+const resultEl = document.getElementById("result");
+resultEl.textContent = `🏆 Spieler ${first} gewinnt!`;
+resultEl.className = first === "X" ? "player-x" : "player-o";
+
     }
   }
 

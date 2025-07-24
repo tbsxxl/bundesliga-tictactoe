@@ -158,25 +158,36 @@ body.only-logos .team-logo img {
 }
 
 
-.correct-x {
-  animation: winner-x-text 1.8s ease-in-out infinite;
-  position: relative;
+.cell.correct-x {
+  animation: glow-x 1.8s ease-in-out infinite;
+  background-color: rgba(255, 79, 178, 0.1);
+  box-shadow: 0 0 10px rgba(255, 79, 178, 0.5);
 }
 
-.correct-o {
-  animation: winner-o-text 1.8s ease-in-out infinite;
-  position: relative;
+.cell.correct-o {
+  animation: glow-o 1.8s ease-in-out infinite;
+  background-color: rgba(57, 208, 192, 0.1);
+  box-shadow: 0 0 10px rgba(57, 208, 192, 0.5);
 }
 
-@keyframes winner-x-text {
-  0%, 100% { color: #FF4FB2; transform: scale(1); text-shadow: 0 0 0px #FF4FB2; }
-  50%      { color: #FF4FB2; transform: scale(1.1); text-shadow: 0 0 10px #FF4FB2; }
+@keyframes glow-x {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(255, 79, 178, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(255, 79, 178, 0.8);
+  }
 }
 
-@keyframes winner-o-text {
-  0%, 100% { color: #39D0C0; transform: scale(1); text-shadow: 0 0 0px #39D0C0; }
-  50%      { color: #39D0C0; transform: scale(1.1); text-shadow: 0 0 10px #39D0C0; }
+@keyframes glow-o {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(57, 208, 192, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(57, 208, 192, 0.8);
+  }
 }
+
 
 
 

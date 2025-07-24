@@ -157,22 +157,28 @@ body.only-logos .team-logo img {
   font-weight: 900;
 }
 
-.correct {
-  animation: winner-glow 2s ease-in-out infinite;
+/* ✅ Nur das Zeichen leuchtet bei Sieg */
+.cell-content.correct {
+  position: relative;
+  z-index: 1;
+  animation: winner-symbol-glow 1.4s ease-in-out infinite;
 }
 
-@keyframes winner-glow {
+@keyframes winner-symbol-glow {
   0% {
+    text-shadow: 0 0 0 rgba(255, 79, 178, 0.0);
     transform: scale(1);
-    box-shadow: 0 0 0px rgba(255, 79, 178, 0.4);
   }
   50% {
-    transform: scale(1.06);
-    box-shadow: 0 0 24px rgba(255, 79, 178, 0.8);
+    text-shadow:
+      0 0 12px rgba(255, 79, 178, 0.9),
+      0 0 24px rgba(255, 79, 178, 0.7),
+      0 0 36px rgba(255, 255, 255, 0.2);
+    transform: scale(1.1);
   }
   100% {
+    text-shadow: 0 0 0 rgba(255, 79, 178, 0.0);
     transform: scale(1);
-    box-shadow: 0 0 0px rgba(255, 79, 178, 0.4);
   }
 }
 
@@ -249,6 +255,7 @@ body.only-logos .team-logo img {
   }
 }
 
+/* ---------------- Mobile optimiert ---------------- */
 @media screen and (max-width: 768px) {
   h1 {
     font-size: 48px;
@@ -256,7 +263,7 @@ body.only-logos .team-logo img {
 
   .grid-container {
     gap: 6px;
-    grid-template-columns: 60px repeat(3, 80px); /* feste Breite für Ecke */
+    grid-template-columns: 60px repeat(3, 80px);
   }
 
   .cell, .team-logo {
@@ -265,7 +272,7 @@ body.only-logos .team-logo img {
   }
 
   .corner-cell {
-    width: 60px; /* passt zur ersten Spalte */
+    width: 60px;
     height: 80px;
   }
 
@@ -278,7 +285,7 @@ body.only-logos .team-logo img {
   }
 
   body.only-logos .grid-container {
-    grid-template-columns: 60px repeat(3, 80px); /* auch im Logo-Modus */
+    grid-template-columns: 60px repeat(3, 80px);
   }
 
   body.only-logos .team-logo,
@@ -291,31 +298,4 @@ body.only-logos .team-logo img {
     width: 60px;
     height: 80px;
   }
-}
-/* ===================== BESSERE SIEGER-ANIMATION ===================== */
-
-.cell-content.correct {
-  position: relative;
-  z-index: 1;
-  animation: winner-symbol-glow 1.4s ease-in-out infinite;
-}
-
-@keyframes winner-symbol-glow {
-  0% {
-    text-shadow: 0 0 0 rgba(255, 79, 178, 0.0);
-    transform: scale(1);
-  }
-  50% {
-    text-shadow:
-      0 0 12px rgba(255, 79, 178, 0.9),
-      0 0 24px rgba(255, 79, 178, 0.7),
-      0 0 36px rgba(255, 255, 255, 0.2);
-    transform: scale(1.1);
-  }
-  100% {
-    text-shadow: 0 0 0 rgba(255, 79, 178, 0.0);
-    transform: scale(1);
-  }
-}
-
 }

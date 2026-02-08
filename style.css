@@ -27,7 +27,7 @@
   /* iPhone sizing */
   --gap: clamp(8px, 2vw, 14px);
   --cell: clamp(86px, 20vw, 150px);
-  --label: clamp(54px, 12vw, 84px);
+  --label: var(--cell); /* <- fix: gleiche Breite wie die Zellen */
   --mark: clamp(26px, 6vw, 52px);
   --logo: clamp(40px, 9vw, 78px);
 
@@ -233,7 +233,7 @@ body.ios{
 }
 
 .corner-cell{
-  width: var(--label);
+  width: var(--cell);
   height: var(--cell);
   border-radius: var(--radius-md);
   background: transparent;

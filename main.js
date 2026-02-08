@@ -1,4 +1,3 @@
-// 🧠 main.fixed.js — Teams ändern sich nur, wenn sie sollen
 let currentPlayer = 'X';
 
 const teams = [
@@ -14,26 +13,34 @@ let topTeams = [];
 let sideTeams = [];
 let lastSize = 0;
 
-function shuffle(arr) {
-  return [...arr].sort(() => Math.random() - 0.5);
+function shuffleFisherYates(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
 function generateBoard(forceNewTeams = true) {
   currentPlayer = 'X';
-  const size = parseInt(document.getElementById("gridSize").value);
+
+  const size = parseInt(document.getElementById("gridSize").value, 10);
 
   if (forceNewTeams || size !== lastSize) {
-    const selected = shuffle(teams).slice(0, size * 2);
+    const selected = shuffleFisherYates(teams).slice(0, size * 2);
     topTeams = selected.slice(0, size);
     sideTeams = selected.slice(size);
-    lastSize = size; // ✅ nur hier setzen
+    lastSize = size;
   }
 
   boardState = Array.from({ length: size }, () => Array(size).fill("?"));
 
   const grid = document.getElementById("grid");
   grid.innerHTML = "";
-  grid.style.gridTemplateColumns = `repeat(${size + 1}, 1fr)`;
+
+  // Wichtig: konsistent mit CSS-Variablen (iPhone-friendly)
+  grid.style.gridTemplateColumns = `var(--label) repeat(${size}, var(--cell))`;
 
   const corner = document.createElement("div");
   corner.className = "corner-cell";
@@ -43,32 +50,46 @@ function generateBoard(forceNewTeams = true) {
 
   for (let r = 0; r < size; r++) {
     grid.appendChild(createTeamCell(sideTeams[r]));
+
     for (let c = 0; c < size; c++) {
       const cell = document.createElement("div");
       cell.className = "cell";
+
       const span = document.createElement("span");
       span.className = "cell-content";
       span.textContent = "?";
 
       cell.appendChild(span);
+
       cell.addEventListener("click", () => {
-        if (span.textContent === "?") {
+        // “Editor”-Cycling beibehalten: ? -> X -> O -> ?
+        const val = span.textContent;
+
+        if (val === "?") {
           span.textContent = currentPlayer;
           span.className = `cell-content player-${currentPlayer.toLowerCase()}`;
           cell.style.boxShadow = currentPlayer === 'X'
             ? "0 0 8px #F042FF"
             : "0 0 8px #87F5F5";
           boardState[r][c] = currentPlayer;
+
           checkWin(size);
+
           currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
           document.getElementById("currentPlayer").textContent = `Spieler ${currentPlayer} ist am Zug`;
-        } else if (span.textContent === "X") {
+          return;
+        }
+
+        if (val === "X") {
           span.textContent = "O";
           span.className = "cell-content player-o";
           cell.style.boxShadow = "0 0 8px #87F5F5";
           boardState[r][c] = "O";
           checkWin(size);
-        } else if (span.textContent === "O") {
+          return;
+        }
+
+        if (val === "O") {
           span.textContent = "?";
           span.className = "cell-content";
           cell.style.boxShadow = "none";
@@ -84,6 +105,9 @@ function generateBoard(forceNewTeams = true) {
   document.getElementById("result").textContent = "";
   const info = document.getElementById("currentPlayer");
   if (info) info.textContent = `Spieler ${currentPlayer} ist am Zug`;
+
+  // iOS: beim Öffnen “snappy” starten – optional
+  // requestAnimationFrame(() => grid.scrollIntoView({ block: "nearest" }));
 }
 
 function createTeamCell(name) {
@@ -98,10 +122,7 @@ function createTeamCell(name) {
       const img = document.createElement("img");
       img.src = teamData[name].logo;
       img.alt = name;
-      img.style.height = "28px";
-      img.style.width = "28px";
-      img.style.objectFit = "contain";
-      img.style.marginRight = "0.5rem";
+      img.className = "team-img"; // Größe kommt aus CSS (wichtig für iPhone)
       div.appendChild(img);
     }
   }
@@ -122,30 +143,44 @@ function checkWin(size) {
   const lines = [];
 
   for (let i = 0; i < size; i++) {
-    lines.push([...Array(size).keys()].map(j => i * size + j));
-    lines.push([...Array(size).keys()].map(j => j * size + i));
+    lines.push([...Array(size).keys()].map(j => i * size + j));     // rows
+    lines.push([...Array(size).keys()].map(j => j * size + i));     // cols
   }
 
-  lines.push([...Array(size).keys()].map(i => i * size + i));
-  lines.push([...Array(size).keys()].map(i => i * size + (size - 1 - i)));
+  lines.push([...Array(size).keys()].map(i => i * size + i));                 // diag
+  lines.push([...Array(size).keys()].map(i => i * size + (size - 1 - i)));    // anti-diag
+
+  // Reset vorherige Winner-Animationen
+  document.querySelectorAll(".cell").forEach(el => {
+    el.classList.remove("correct-x", "correct-o");
+  });
 
   for (const line of lines) {
     const first = values[line[0]];
     if (first && first !== "?" && line.every(idx => values[idx] === first)) {
       line.forEach(idx => {
-        cells[idx].classList.add("correct");
         cells[idx].parentElement.classList.add(`correct-${first.toLowerCase()}`);
       });
+
       const resultEl = document.getElementById("result");
       resultEl.textContent = `🏆 Spieler ${first} gewinnt!`;
       resultEl.className = first === "X" ? "player-x" : "player-o";
+
+      // iOS Haptics (best effort)
+      if (navigator.vibrate) navigator.vibrate([30, 40, 30]);
+
       return;
     }
   }
-
 
   document.getElementById("result").textContent = "";
 }
 
 window.onload = () => generateBoard(true);
-document.getElementById("logoOnly").addEventListener("change", () => generateBoard(false));
+
+document.getElementById("logoOnly").addEventListener("change", () => {
+  document.body.classList.toggle("only-logos", document.getElementById("logoOnly").checked);
+  generateBoard(false);
+});
+
+document.getElementById("gridSize").addEventListener("change", () => generateBoard(true));

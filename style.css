@@ -1,14 +1,13 @@
 :root{
-  /* Light-first (kein Dark-Mode-Zwang). Farben iOS-nah, aber Bundesliga-akzentiert. */
-  --bg0: #F2F2F7;       /* iOS grouped background */
+  --bg0: #F2F2F7;
   --card: rgba(255,255,255,0.78);
   --card-solid: #FFFFFF;
 
   --text: #111114;
   --muted: rgba(17,17,20,0.58);
 
-  --accent: #0A84FF;    /* iOS blue */
-  --accent2: #34C759;   /* iOS green (für „O“ optional) */
+  --accent: #0A84FF;
+  --accent2: #34C759;
   --danger: #FF3B30;
 
   --shadow: 0 10px 30px rgba(0,0,0,0.08);
@@ -18,18 +17,17 @@
   --radius-lg: 22px;
   --radius-md: 16px;
 
-  /* Safe area */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
 
-  /* iPhone sizing */
-  --gap: clamp(8px, 2vw, 14px);
-  --cell: clamp(90px, 20vw, 150px);
-  --label: var(--cell); /* <- fix: gleiche Breite wie die Zellen */
-  --mark: clamp(26px, 6vw, 52px);
-  --logo: clamp(40px, 9vw, 78px);
+  /* Wird dynamisch durch JS gesetzt (Fit-to-Viewport) */
+  --gap: 10px;
+  --cell: 110px;
+  --label: 110px;
+  --mark: 46px;
+  --logo: 60px;
 
   --tap: 48px;
 }
@@ -54,6 +52,8 @@ body.ios{
     calc(12px + var(--safe-right))
     calc(16px + var(--safe-bottom))
     calc(12px + var(--safe-left));
+
+  min-height: 100svh;
 }
 
 .topbar{
@@ -84,6 +84,9 @@ body.ios{
 .layout{
   max-width: 980px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100svh - (12px + var(--safe-top)) - (16px + var(--safe-bottom)));
 }
 
 .panel{
@@ -213,6 +216,7 @@ body.ios{
   transform: translateX(20px);
 }
 
+/* Board bekommt die Resthöhe und darf NICHT scrollen */
 .board-card{
   margin-top: 14px;
   background: var(--card-solid);
@@ -220,8 +224,9 @@ body.ios{
   box-shadow: var(--shadow-soft);
   border: 1px solid rgba(0,0,0,0.06);
   padding: 14px;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .grid{
@@ -229,7 +234,10 @@ body.ios{
   gap: var(--gap);
   width: fit-content;
   margin: 0 auto;
-  grid-template-columns: var(--label) repeat(3, var(--cell)); /* JS überschreibt Anzahl */
+  height: 100%;
+  align-content: center;
+  justify-content: center;
+  grid-template-columns: repeat(4, var(--cell));
 }
 
 .corner-cell{
@@ -245,6 +253,7 @@ body.ios{
   border-radius: var(--radius-lg);
   overflow:hidden;
   display:flex;
+  flex-direction: column;
   align-items:center;
   justify-content:center;
   text-align:center;
@@ -273,12 +282,13 @@ body.ios{
 .team-logo span{
   display:block;
   margin-top: 8px;
-  font-size: clamp(11px, 2.6vw, 14px);
+  font-size: clamp(10px, 2.6vw, 14px);
   line-height: 1.1;
   text-shadow: 0 10px 18px rgba(0,0,0,0.24);
 }
 
 body.only-logos .team-logo span{ display:none; }
+body.compact .team-logo span{ display:none; }
 
 .cell{
   width: var(--cell);
@@ -339,10 +349,4 @@ body.only-logos .team-logo span{ display:none; }
   letter-spacing: -0.02em;
   font-size: clamp(16px, 3.5vw, 22px);
   color: var(--muted);
-}
-
-/* Landscape iPhone: kompakter */
-@media (max-width: 932px) and (orientation: landscape){
-  .panel{ padding: 12px; }
-  .board-card{ padding: 12px; }
 }

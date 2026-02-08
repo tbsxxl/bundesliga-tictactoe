@@ -11,7 +11,7 @@ const teams = [
 let boardState = [];
 let topTeams = [];
 let sideTeams = [];
-let lastSize = 0;
+let lastSize = 3;
 
 function shuffleFisherYates(arr) {
   const a = [...arr];
@@ -22,16 +22,30 @@ function shuffleFisherYates(arr) {
   return a;
 }
 
+function setCurrentPlayerLabel() {
+  const el = document.getElementById("currentPlayer");
+  if (el) el.textContent = `Spieler ${currentPlayer} ist am Zug`;
+}
+
+function setResult(text, tone = "muted") {
+  const el = document.getElementById("result");
+  if (!el) return;
+  el.textContent = text || "";
+  el.style.color =
+    tone === "x" ? "var(--accent)" :
+    tone === "o" ? "var(--accent2)" :
+    "var(--muted)";
+}
+
 function generateBoard(forceNewTeams = true) {
   currentPlayer = 'X';
 
-  const size = parseInt(document.getElementById("gridSize").value, 10);
+  const size = lastSize;
 
-  if (forceNewTeams || size !== lastSize) {
+  if (forceNewTeams) {
     const selected = shuffleFisherYates(teams).slice(0, size * 2);
     topTeams = selected.slice(0, size);
     sideTeams = selected.slice(size);
-    lastSize = size;
   }
 
   boardState = Array.from({ length: size }, () => Array(size).fill("?"));
@@ -39,7 +53,7 @@ function generateBoard(forceNewTeams = true) {
   const grid = document.getElementById("grid");
   grid.innerHTML = "";
 
-  // Wichtig: konsistent mit CSS-Variablen (iPhone-friendly)
+  // iOS-friendly: stabile Spaltenbreite über CSS Vars
   grid.style.gridTemplateColumns = `var(--label) repeat(${size}, var(--cell))`;
 
   const corner = document.createElement("div");
@@ -58,56 +72,45 @@ function generateBoard(forceNewTeams = true) {
       const span = document.createElement("span");
       span.className = "cell-content";
       span.textContent = "?";
-
       cell.appendChild(span);
 
       cell.addEventListener("click", () => {
-        // “Editor”-Cycling beibehalten: ? -> X -> O -> ?
-        const val = span.textContent;
+        // Aktueller Modus: ? -> X/O (mit Turn) und danach blocken? (hier: klassisch TicTacToe)
+        if (boardState[r][c] !== "?") return;
 
-        if (val === "?") {
-          span.textContent = currentPlayer;
-          span.className = `cell-content player-${currentPlayer.toLowerCase()}`;
-          cell.style.boxShadow = currentPlayer === 'X'
-            ? "0 0 8px #F042FF"
-            : "0 0 8px #87F5F5";
-          boardState[r][c] = currentPlayer;
+        boardState[r][c] = currentPlayer;
+        span.textContent = currentPlayer;
+        span.classList.add(`player-${currentPlayer.toLowerCase()}`);
 
-          checkWin(size);
+        // iOS Haptics (best effort)
+        if (navigator.vibrate) navigator.vibrate(12);
 
-          currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
-          document.getElementById("currentPlayer").textContent = `Spieler ${currentPlayer} ist am Zug`;
+        const winner = checkWin(size);
+        if (winner) {
+          setResult(`🏆 Spieler ${winner} gewinnt!`, winner === "X" ? "x" : "o");
+          // Board lock (optional): nach Win keine weiteren Klicks
+          lockBoard();
+          if (navigator.vibrate) navigator.vibrate([20, 40, 20]);
           return;
         }
 
-        if (val === "X") {
-          span.textContent = "O";
-          span.className = "cell-content player-o";
-          cell.style.boxShadow = "0 0 8px #87F5F5";
-          boardState[r][c] = "O";
-          checkWin(size);
-          return;
-        }
-
-        if (val === "O") {
-          span.textContent = "?";
-          span.className = "cell-content";
-          cell.style.boxShadow = "none";
-          boardState[r][c] = "?";
-          checkWin(size);
-        }
+        currentPlayer = currentPlayer === "X" ? "O" : "X";
+        setCurrentPlayerLabel();
       });
 
       grid.appendChild(cell);
     }
   }
 
-  document.getElementById("result").textContent = "";
-  const info = document.getElementById("currentPlayer");
-  if (info) info.textContent = `Spieler ${currentPlayer} ist am Zug`;
+  setResult("");
+  setCurrentPlayerLabel();
+}
 
-  // iOS: beim Öffnen “snappy” starten – optional
-  // requestAnimationFrame(() => grid.scrollIntoView({ block: "nearest" }));
+function lockBoard(){
+  document.querySelectorAll(".cell").forEach(cell => {
+    cell.style.pointerEvents = "none";
+    cell.style.opacity = "0.98";
+  });
 }
 
 function createTeamCell(name) {
@@ -116,13 +119,12 @@ function createTeamCell(name) {
 
   if (typeof teamData !== "undefined" && teamData[name]) {
     div.style.backgroundColor = teamData[name].color || "#444";
-    div.style.color = "#ffffff";
 
     if (teamData[name].logo) {
       const img = document.createElement("img");
       img.src = teamData[name].logo;
       img.alt = name;
-      img.className = "team-img"; // Größe kommt aus CSS (wichtig für iPhone)
+      img.className = "team-img";
       div.appendChild(img);
     }
   }
@@ -138,49 +140,62 @@ function createTeamCell(name) {
 }
 
 function checkWin(size) {
-  const cells = Array.from(document.querySelectorAll(".cell-content"));
-  const values = cells.map(s => s.textContent.trim());
   const lines = [];
 
   for (let i = 0; i < size; i++) {
-    lines.push([...Array(size).keys()].map(j => i * size + j));     // rows
-    lines.push([...Array(size).keys()].map(j => j * size + i));     // cols
+    lines.push([...Array(size).keys()].map(j => [i, j])); // rows
+    lines.push([...Array(size).keys()].map(j => [j, i])); // cols
   }
 
-  lines.push([...Array(size).keys()].map(i => i * size + i));                 // diag
-  lines.push([...Array(size).keys()].map(i => i * size + (size - 1 - i)));    // anti-diag
+  lines.push([...Array(size).keys()].map(i => [i, i]));
+  lines.push([...Array(size).keys()].map(i => [i, size - 1 - i]));
 
-  // Reset vorherige Winner-Animationen
-  document.querySelectorAll(".cell").forEach(el => {
-    el.classList.remove("correct-x", "correct-o");
-  });
+  // reset highlights
+  document.querySelectorAll(".cell").forEach(el => el.classList.remove("correct-x","correct-o"));
 
   for (const line of lines) {
-    const first = values[line[0]];
-    if (first && first !== "?" && line.every(idx => values[idx] === first)) {
-      line.forEach(idx => {
-        cells[idx].parentElement.classList.add(`correct-${first.toLowerCase()}`);
+    const [r0, c0] = line[0];
+    const first = boardState[r0][c0];
+    if (first === "?" ) continue;
+
+    if (line.every(([r,c]) => boardState[r][c] === first)) {
+      // highlight cells
+      const flatIndex = (r,c) => r * size + c;
+      const cellEls = Array.from(document.querySelectorAll(".cell"));
+      line.forEach(([r,c]) => {
+        cellEls[flatIndex(r,c)]?.classList.add(`correct-${first.toLowerCase()}`);
       });
-
-      const resultEl = document.getElementById("result");
-      resultEl.textContent = `🏆 Spieler ${first} gewinnt!`;
-      resultEl.className = first === "X" ? "player-x" : "player-o";
-
-      // iOS Haptics (best effort)
-      if (navigator.vibrate) navigator.vibrate([30, 40, 30]);
-
-      return;
+      return first;
     }
   }
 
-  document.getElementById("result").textContent = "";
+  return null;
 }
 
-window.onload = () => generateBoard(true);
+/* UI Wiring */
+function setSize(size){
+  lastSize = size;
+  document.querySelectorAll(".segmented__btn").forEach(b => {
+    const active = parseInt(b.dataset.size, 10) === size;
+    b.classList.toggle("is-active", active);
+    b.setAttribute("aria-selected", active ? "true" : "false");
+  });
+  generateBoard(true);
+}
 
-document.getElementById("logoOnly").addEventListener("change", () => {
-  document.body.classList.toggle("only-logos", document.getElementById("logoOnly").checked);
-  generateBoard(false);
+window.addEventListener("load", () => {
+  // segmented
+  document.querySelectorAll(".segmented__btn").forEach(btn => {
+    btn.addEventListener("click", () => setSize(parseInt(btn.dataset.size, 10)));
+  });
+
+  document.getElementById("newRoundBtn").addEventListener("click", () => generateBoard(true));
+
+  document.getElementById("logoOnly").addEventListener("change", (e) => {
+    document.body.classList.toggle("only-logos", e.target.checked);
+    generateBoard(false);
+  });
+
+  // init
+  setSize(3);
 });
-
-document.getElementById("gridSize").addEventListener("change", () => generateBoard(true));

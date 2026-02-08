@@ -15,6 +15,6 @@ const teamData = {
   "1. FC Union Berlin": { name: "1. FC Union Berlin", logo: "https://upload.wikimedia.org/wikipedia/commons/4/44/1._FC_Union_Berlin_Logo.svg", color: "#d40511" },
   "1. FSV Mainz 05": { name: "1. FSV Mainz 05", logo: "https://upload.wikimedia.org/wikipedia/commons/9/9e/Logo_Mainz_05.svg", color: "#c30c0e" },
   "1. FC Köln": { name: "1. FC Köln", logo: "https://upload.wikimedia.org/wikipedia/commons/0/01/1._FC_Koeln_Logo_2014%E2%80%93.svg", color: "#ed1c24" },
-  "FC St. Pauli": { name: "FC St. Pauli", logo: "https://upload.wikimedia.org/wikipedia/de/b/b3/Fc_st_pauli_logo.svg", color: "#472727" },
+  "FC St. Pauli": { name: "FC St. Pauli", logo: "https://upload.wikimedia.org/wikipedia/commons/b/b3/Fc_st_pauli_logo.svg", color: "#472727" },
   "Hamburger SV": { name: "Hamburger SV", logo: "https://upload.wikimedia.org/wikipedia/commons/f/f7/Hamburger_SV_logo.svg", color: "#0f2650" },
 };

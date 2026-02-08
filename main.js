@@ -37,6 +37,52 @@ function setResult(text, tone = "muted") {
     "var(--muted)";
 }
 
+/* --- Fit-to-Viewport: garantiert KEIN Scroll (auch 5x5) --- */
+function fitBoardToViewport(size){
+  const card = document.querySelector(".board-card");
+  const root = document.documentElement;
+  if (!card) return;
+
+  const cardStyle = getComputedStyle(card);
+  const padX = parseFloat(cardStyle.paddingLeft) + parseFloat(cardStyle.paddingRight);
+  const padY = parseFloat(cardStyle.paddingTop) + parseFloat(cardStyle.paddingBottom);
+
+  const availW = card.clientWidth - padX;
+  const availH = card.clientHeight - padY;
+
+  // Gap dynamisch setzen (je größer das Grid, desto kleiner Gap)
+  const gap = size >= 5 ? 8 : size === 4 ? 9 : 10;
+
+  const n = size + 1;
+
+  const cellFromW = (availW - (n - 1) * gap) / n;
+  const cellFromH = (availH - (n - 1) * gap) / n;
+
+  let cell = Math.floor(Math.min(cellFromW, cellFromH));
+
+  // Minimum Tap Target (iOS)
+  cell = Math.max(44, cell);
+
+  const logo = Math.floor(cell * 0.55);
+  const mark = Math.floor(cell * 0.48);
+
+  root.style.setProperty("--gap", `${gap}px`);
+  root.style.setProperty("--cell", `${cell}px`);
+  root.style.setProperty("--label", `${cell}px`);
+  root.style.setProperty("--logo", `${logo}px`);
+  root.style.setProperty("--mark", `${mark}px`);
+
+  // Wenn es eng wird: automatisch Namen ausblenden
+  document.body.classList.toggle("compact", cell < 72);
+}
+
+function lockBoard(){
+  document.querySelectorAll(".cell").forEach(cell => {
+    cell.style.pointerEvents = "none";
+    cell.style.opacity = "0.98";
+  });
+}
+
 function generateBoard(forceNewTeams = true) {
   currentPlayer = 'X';
 
@@ -53,8 +99,8 @@ function generateBoard(forceNewTeams = true) {
   const grid = document.getElementById("grid");
   grid.innerHTML = "";
 
-  // iOS-friendly: stabile Spaltenbreite über CSS Vars
-  grid.style.gridTemplateColumns = `var(--label) repeat(${size}, var(--cell))`;
+  // Wichtig: Spalten/Rows sind (size+1)
+  grid.style.gridTemplateColumns = `repeat(${size + 1}, var(--cell))`;
 
   const corner = document.createElement("div");
   corner.className = "corner-cell";
@@ -75,20 +121,17 @@ function generateBoard(forceNewTeams = true) {
       cell.appendChild(span);
 
       cell.addEventListener("click", () => {
-        // Aktueller Modus: ? -> X/O (mit Turn) und danach blocken? (hier: klassisch TicTacToe)
         if (boardState[r][c] !== "?") return;
 
         boardState[r][c] = currentPlayer;
         span.textContent = currentPlayer;
         span.classList.add(`player-${currentPlayer.toLowerCase()}`);
 
-        // iOS Haptics (best effort)
         if (navigator.vibrate) navigator.vibrate(12);
 
         const winner = checkWin(size);
         if (winner) {
           setResult(`🏆 Spieler ${winner} gewinnt!`, winner === "X" ? "x" : "o");
-          // Board lock (optional): nach Win keine weiteren Klicks
           lockBoard();
           if (navigator.vibrate) navigator.vibrate([20, 40, 20]);
           return;
@@ -104,13 +147,9 @@ function generateBoard(forceNewTeams = true) {
 
   setResult("");
   setCurrentPlayerLabel();
-}
 
-function lockBoard(){
-  document.querySelectorAll(".cell").forEach(cell => {
-    cell.style.pointerEvents = "none";
-    cell.style.opacity = "0.98";
-  });
+  // Fit Board nach Render
+  requestAnimationFrame(() => fitBoardToViewport(size));
 }
 
 function createTeamCell(name) {
@@ -143,28 +182,28 @@ function checkWin(size) {
   const lines = [];
 
   for (let i = 0; i < size; i++) {
-    lines.push([...Array(size).keys()].map(j => [i, j])); // rows
-    lines.push([...Array(size).keys()].map(j => [j, i])); // cols
+    lines.push([...Array(size).keys()].map(j => [i, j]));
+    lines.push([...Array(size).keys()].map(j => [j, i]));
   }
 
   lines.push([...Array(size).keys()].map(i => [i, i]));
   lines.push([...Array(size).keys()].map(i => [i, size - 1 - i]));
 
-  // reset highlights
   document.querySelectorAll(".cell").forEach(el => el.classList.remove("correct-x","correct-o"));
 
   for (const line of lines) {
     const [r0, c0] = line[0];
     const first = boardState[r0][c0];
-    if (first === "?" ) continue;
+    if (first === "?") continue;
 
     if (line.every(([r,c]) => boardState[r][c] === first)) {
-      // highlight cells
-      const flatIndex = (r,c) => r * size + c;
       const cellEls = Array.from(document.querySelectorAll(".cell"));
+      const idx = (r,c) => r * size + c;
+
       line.forEach(([r,c]) => {
-        cellEls[flatIndex(r,c)]?.classList.add(`correct-${first.toLowerCase()}`);
+        cellEls[idx(r,c)]?.classList.add(`correct-${first.toLowerCase()}`);
       });
+
       return first;
     }
   }
@@ -172,19 +211,24 @@ function checkWin(size) {
   return null;
 }
 
-/* UI Wiring */
 function setSize(size){
   lastSize = size;
+
   document.querySelectorAll(".segmented__btn").forEach(b => {
     const active = parseInt(b.dataset.size, 10) === size;
     b.classList.toggle("is-active", active);
     b.setAttribute("aria-selected", active ? "true" : "false");
   });
+
   generateBoard(true);
 }
 
+window.addEventListener("resize", () => fitBoardToViewport(lastSize));
+window.addEventListener("orientationchange", () => {
+  setTimeout(() => fitBoardToViewport(lastSize), 150);
+});
+
 window.addEventListener("load", () => {
-  // segmented
   document.querySelectorAll(".segmented__btn").forEach(btn => {
     btn.addEventListener("click", () => setSize(parseInt(btn.dataset.size, 10)));
   });
@@ -196,6 +240,5 @@ window.addEventListener("load", () => {
     generateBoard(false);
   });
 
-  // init
   setSize(3);
 });

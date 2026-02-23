@@ -12,6 +12,14 @@ let boardState = [];
 let topTeams = [];
 let sideTeams = [];
 let lastSize = 3;
+let moveHistory = []; // Stack: { r, c, player }
+let gameLocked = false;
+
+function setUndoButtonState() {
+  const btn = document.getElementById("undoBtn");
+  if (!btn) return;
+  btn.disabled = moveHistory.length === 0;
+}
 
 function shuffleFisherYates(arr) {
   const a = [...arr];
@@ -77,14 +85,62 @@ function fitBoardToViewport(size){
 }
 
 function lockBoard(){
+  gameLocked = true;
   document.querySelectorAll(".cell").forEach(cell => {
     cell.style.pointerEvents = "none";
     cell.style.opacity = "0.98";
   });
 }
 
+function unlockBoard(){
+  gameLocked = false;
+  document.querySelectorAll(".cell").forEach(cell => {
+    cell.style.pointerEvents = "auto";
+    cell.style.opacity = "1";
+  });
+}
+
+function clearWinHighlights(){
+  document.querySelectorAll(".cell").forEach(el => el.classList.remove("correct-x","correct-o"));
+}
+
+function undoMove(){
+  if (moveHistory.length === 0) return;
+
+  const size = lastSize;
+  const last = moveHistory.pop();
+  boardState[last.r][last.c] = "?";
+
+  // DOM-Update
+  const cellEls = Array.from(document.querySelectorAll(".cell"));
+  const idx = last.r * size + last.c;
+  const cell = cellEls[idx];
+  if (cell) {
+    const span = cell.querySelector(".cell-content");
+    if (span) {
+      span.textContent = "?";
+      span.classList.remove("player-x","player-o");
+    }
+  }
+
+  // Wenn vorher gewonnen wurde: Ergebnis/Highlights entfernen und wieder spielbar machen
+  if (gameLocked) {
+    unlockBoard();
+    setResult("");
+  }
+  clearWinHighlights();
+
+  // Spieler zurücksetzen (der Spieler des entfernten Zugs ist wieder dran)
+  currentPlayer = last.player;
+  setCurrentPlayerLabel();
+  setUndoButtonState();
+}
+
 function generateBoard(forceNewTeams = true) {
   currentPlayer = 'X';
+  moveHistory = [];
+  gameLocked = false;
+  setUndoButtonState();
 
   const size = lastSize;
 
@@ -124,8 +180,11 @@ function generateBoard(forceNewTeams = true) {
         if (boardState[r][c] !== "?") return;
 
         boardState[r][c] = currentPlayer;
+        moveHistory.push({ r, c, player: currentPlayer });
         span.textContent = currentPlayer;
         span.classList.add(`player-${currentPlayer.toLowerCase()}`);
+
+        setUndoButtonState();
 
         if (navigator.vibrate) navigator.vibrate(12);
 
@@ -147,6 +206,7 @@ function generateBoard(forceNewTeams = true) {
 
   setResult("");
   setCurrentPlayerLabel();
+  setUndoButtonState();
 
   // Fit Board nach Render
   requestAnimationFrame(() => fitBoardToViewport(size));
@@ -234,6 +294,23 @@ window.addEventListener("load", () => {
   });
 
   document.getElementById("newRoundBtn").addEventListener("click", () => generateBoard(true));
+
+  const undoBtn = document.getElementById("undoBtn");
+  if (undoBtn) undoBtn.addEventListener("click", undoMove);
+
+  // Cmd/Ctrl+Z als Shortcut
+  document.addEventListener("keydown", (e) => {
+    const isMac = navigator.platform.toUpperCase().includes("MAC");
+    const mod = isMac ? e.metaKey : e.ctrlKey;
+    if (!mod) return;
+    if (e.key.toLowerCase() !== "z") return;
+    // nicht in Eingabefeldern
+    const t = e.target;
+    const isTyping = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
+    if (isTyping) return;
+    e.preventDefault();
+    undoMove();
+  });
 
   document.getElementById("logoOnly").addEventListener("change", (e) => {
     document.body.classList.toggle("only-logos", e.target.checked);

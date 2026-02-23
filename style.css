@@ -157,6 +157,24 @@ body.ios{
   box-shadow: 0 10px 22px rgba(10,132,255,0.22);
 }
 
+.btn-secondary{
+  background: rgba(120,120,128,0.14);
+  color: rgba(17,17,20,0.82);
+  border: 1px solid rgba(0,0,0,0.08);
+}
+
+.btn:disabled{
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: saturate(0.85);
+}
+
+.btn-row{
+  display:flex;
+  gap: 10px;
+  align-items:center;
+}
+
 .switch-row{
   display:flex;
   align-items:center;

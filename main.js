@@ -69,10 +69,7 @@ function fitBoardToViewport(size){
   const root = document.documentElement;
   if (!card) return;
 
-  
-  const grid = document.getElementById("grid");
-  if (grid) grid.style.gridTemplateColumns = `repeat(${size + 1}, var(--cell))`;
-const cardStyle = getComputedStyle(card);
+  const cardStyle = getComputedStyle(card);
   const padX = parseFloat(cardStyle.paddingLeft) + parseFloat(cardStyle.paddingRight);
   const padY = parseFloat(cardStyle.paddingTop) + parseFloat(cardStyle.paddingBottom);
 
@@ -159,9 +156,10 @@ function undoMove(){
   if (cell) {
     const span = cell.querySelector(".cell-content");
     if (span) {
-      span.textContent = "?";
+      span.textContent = "";
       span.classList.remove("player-x","player-o");
-    }
+          cell.classList.add("is-empty");
+}
   }
 
   // Spieler zurücksetzen (der Spieler des entfernten Zugs ist wieder dran)
@@ -208,16 +206,21 @@ function generateBoard(forceNewTeams = true) {
 
       const span = document.createElement("span");
       span.className = "cell-content";
-      span.textContent = "?";
+      
+      cell.classList.add("is-empty");
+span.textContent = "";
       cell.appendChild(span);
 
-      cell.addEventListener("click", () => {
+            cell.classList.add("is-empty");
+cell.addEventListener("click", () => {
         if (boardState[r][c] !== "?") return;
 
         boardState[r][c] = currentPlayer;
         moveHistory.push({ type: 'move', r, c, player: currentPlayer });
         span.textContent = currentPlayer;
-        span.classList.add(`player-${currentPlayer.toLowerCase()}`);
+        
+        cell.classList.remove("is-empty");
+span.classList.add(`player-${currentPlayer.toLowerCase()}`);
 
         setUndoButtonState();
 

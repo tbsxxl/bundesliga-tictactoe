@@ -69,7 +69,10 @@ function fitBoardToViewport(size){
   const root = document.documentElement;
   if (!card) return;
 
-  const cardStyle = getComputedStyle(card);
+  
+  const grid = document.getElementById("grid");
+  if (grid) grid.style.gridTemplateColumns = `repeat(${size + 1}, var(--cell))`;
+const cardStyle = getComputedStyle(card);
   const padX = parseFloat(cardStyle.paddingLeft) + parseFloat(cardStyle.paddingRight);
   const padY = parseFloat(cardStyle.paddingTop) + parseFloat(cardStyle.paddingBottom);
 

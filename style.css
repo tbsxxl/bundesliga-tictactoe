@@ -273,15 +273,17 @@ body.ios{
   overflow: hidden;
 }
 
-.grid{
-  display:grid;
+.grid{display:grid;
   gap: var(--gap);
   width: fit-content;
-  margin: 0 auto;
-  height: 100%;
-  align-content: center;
+  margin: 0 auto;align-content: center;
   justify-content: center;
   grid-template-columns: repeat(4, var(--cell));
+
+  justify-items: center;
+  align-items: center;
+  grid-auto-rows: var(--cell);
+
 }
 
 .corner-cell{
@@ -307,6 +309,9 @@ body.ios{
   position: relative;
   border: 1px solid var(--divider);
   box-shadow: 0 14px 28px rgba(0,0,0,0.16);
+  place-self: center;
+  max-width: var(--cell);
+  max-height: var(--cell);
 }
 
 .team-logo::after{
@@ -318,10 +323,8 @@ body.ios{
 }
 
 .team-img{
-  width: var(--logo);
-  height: var(--logo);
-  object-fit: contain;
-  filter: drop-shadow(0 10px 18px rgba(0,0,0,0.22));
+  max-width: 100%;
+  height: auto;
 }
 
 .team-logo span{
@@ -351,6 +354,8 @@ body.compact .team-logo span{ display:none; }
   touch-action: manipulation;
 
   transition: transform 120ms ease, box-shadow 120ms ease;
+  place-self: center;
+  aspect-ratio: 1 / 1;
 }
 
 .cell:active{ transform: scale(0.985); }
@@ -413,4 +418,14 @@ body.compact .team-logo span{ display:none; }
   border-radius: 999px;
   background: linear-gradient(90deg, var(--accent), rgba(200,16,46,0.55), rgba(0,0,0,0.10));
   opacity: 0.95;
+}
+
+/* Prevent oversized club logos (SVGs) from expanding the grid items */
+.team-img{
+  width: min(var(--logo), 70%);
+  height: auto;
+  max-height: 70%;
+  max-width: 70%;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 18px rgba(0,0,0,0.18));
 }

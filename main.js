@@ -12,7 +12,7 @@ let boardState = [];
 let topTeams = [];
 let sideTeams = [];
 let lastSize = 3;
-let moveHistory = []; // Stack: { type:'move'|'skip', r, c, player }
+let moveHistory = []; // Stack: { type:'move', r, c, player } | { type:'skip', player }
 let gameLocked = false;
 
 function setUndoButtonState() {
@@ -48,76 +48,40 @@ function setResult(text, tone = "muted") {
 /* --- Fit-to-Viewport: garantiert KEIN Scroll (auch 5x5) --- */
 function fitBoardToViewport(size){
   const card = document.querySelector(".board-card");
-  const grid = document.getElementById("grid");
   const root = document.documentElement;
-  if (!card || !grid) return;
+  if (!card) return;
+
+  const cardStyle = getComputedStyle(card);
+  const padX = parseFloat(cardStyle.paddingLeft) + parseFloat(cardStyle.paddingRight);
+  const padY = parseFloat(cardStyle.paddingTop) + parseFloat(cardStyle.paddingBottom);
+
+  const availW = card.clientWidth - padX;
+  const availH = card.clientHeight - padY;
+
+  // Gap dynamisch setzen (je größer das Grid, desto kleiner Gap)
+  const gap = size >= 5 ? 8 : size === 4 ? 9 : 10;
 
   const n = size + 1;
 
-  // Use visualViewport when available (iOS address bar / safe area). Fallback to inner sizes.
-  const vv = window.visualViewport;
-  const viewportW = Math.floor(vv ? vv.width : window.innerWidth);
-  const viewportH = Math.floor(vv ? vv.height : window.innerHeight);
-
-  const topbar = document.querySelector(".topbar");
-  const panel  = document.querySelector(".panel");
-
-  const topbarH = topbar ? Math.ceil(topbar.getBoundingClientRect().height) : 0;
-  const panelH  = panel  ? Math.ceil(panel.getBoundingClientRect().height)  : 0;
-
-  // Gap rules (kept consistent)
-  const gap = size >= 5 ? 5 : size === 4 ? 7 : 8;
-
-  // Read real paddings from CSS to avoid drift (card + grid)
-  const cardCS = getComputedStyle(card);
-  const gridCS = getComputedStyle(grid);
-
-  const cardPadX = (parseFloat(cardCS.paddingLeft) || 0) + (parseFloat(cardCS.paddingRight) || 0);
-  const cardPadY = (parseFloat(cardCS.paddingTop)  || 0) + (parseFloat(cardCS.paddingBottom) || 0);
-
-  const gridPadX = (parseFloat(gridCS.paddingLeft) || 0) + (parseFloat(gridCS.paddingRight) || 0);
-  const gridPadY = (parseFloat(gridCS.paddingTop)  || 0) + (parseFloat(gridCS.paddingBottom) || 0);
-
-  // Outer margins (app padding + breathing room)
-  const outerX = 16;
-  const outerY = 22;
-
-  const availableW = Math.max(240, viewportW - outerX - cardPadX - gridPadX);
-  const availableH = Math.max(240, viewportH - topbarH - panelH - outerY - cardPadY - gridPadY);
-
-  const cellFromW = (availableW - (n - 1) * gap) / n;
-  const cellFromH = (availableH - (n - 1) * gap) / n;
+  const cellFromW = (availW - (n - 1) * gap) / n;
+  const cellFromH = (availH - (n - 1) * gap) / n;
 
   let cell = Math.floor(Math.min(cellFromW, cellFromH));
 
-  // Minimum tap targets, but never force overflow. If it doesn't fit, accept smaller.
-  const desiredMin = size >= 5 ? 32 : 44;
-  if (cell >= desiredMin) {
-    cell = cell;
-  } else {
-    // keep as computed (fits) even if smaller than desiredMin
-    cell = Math.max(24, cell);
-  }
+  // Minimum Tap Target (iOS)
+  cell = Math.max(44, cell);
 
-  const logo = Math.floor(cell * 0.60);
-  const mark = Math.floor(cell * 0.52);
+  const logo = Math.floor(cell * 0.55);
+  const mark = Math.floor(cell * 0.48);
 
   root.style.setProperty("--gap", `${gap}px`);
   root.style.setProperty("--cell", `${cell}px`);
   root.style.setProperty("--label", `${cell}px`);
   root.style.setProperty("--logo", `${logo}px`);
   root.style.setProperty("--mark", `${mark}px`);
-  root.style.setProperty("--n", String(n));
 
-  document.body.classList.toggle("compact", cell < 64);
-
-  // Lock the grid tracks explicitly
-  grid.style.gridTemplateColumns = `repeat(${n}, var(--cell))`;
-  grid.style.gridTemplateRows = `repeat(${n}, var(--cell))`;
-  root.style.setProperty("--cell", `${cell}px`);
-  root.style.setProperty("--label", `${cell}px`);
-  root.style.setProperty("--logo", `${logo}px`);
-  root.style.setProperty("--mark", `${mark}px`);
+  // Wenn es eng wird: automatisch Namen ausblenden
+  document.body.classList.toggle("compact", cell < 72);
 }
 
 function lockBoard(){
@@ -145,15 +109,16 @@ function undoMove(){
 
   const size = lastSize;
   const last = moveHistory.pop();
-  if (last && last.type === 'skip') {
+
+  if (last.type === "skip") {
+    // Restore the player who had the skipped turn
     currentPlayer = last.player;
-    if (gameLocked) { unlockBoard(); setResult(''); }
-    clearWinHighlights();
     setCurrentPlayerLabel();
     setUndoButtonState();
-    setSkipButtonState();
     return;
   }
+
+  // Default: normal move
   boardState[last.r][last.c] = "?";
 
   // DOM-Update
@@ -180,6 +145,18 @@ function undoMove(){
   setCurrentPlayerLabel();
   setUndoButtonState();
 }
+
+function skipTurn(){
+  if (gameLocked) return;
+
+  // Skip is undoable
+  moveHistory.push({ type: "skip", player: currentPlayer });
+  setUndoButtonState();
+
+  currentPlayer = currentPlayer === "X" ? "O" : "X";
+  setCurrentPlayerLabel();
+}
+
 
 function generateBoard(forceNewTeams = true) {
   currentPlayer = 'X';
@@ -230,7 +207,6 @@ function generateBoard(forceNewTeams = true) {
         span.classList.add(`player-${currentPlayer.toLowerCase()}`);
 
         setUndoButtonState();
-        setSkipButtonState();
 
         if (navigator.vibrate) navigator.vibrate(12);
 
@@ -253,7 +229,6 @@ function generateBoard(forceNewTeams = true) {
   setResult("");
   setCurrentPlayerLabel();
   setUndoButtonState();
-  setSkipButtonState();
 
   // Fit Board nach Render
   requestAnimationFrame(() => fitBoardToViewport(size));
@@ -335,16 +310,6 @@ window.addEventListener("orientationchange", () => {
   setTimeout(() => fitBoardToViewport(lastSize), 150);
 });
 
-
-function skipTurn(){
-  if (gameLocked) return;
-  moveHistory.push({ type: 'skip', player: currentPlayer });
-  currentPlayer = currentPlayer === "X" ? "O" : "X";
-  setCurrentPlayerLabel();
-  setUndoButtonState();
-  setSkipButtonState();
-}
-
 window.addEventListener("load", () => {
   document.querySelectorAll(".segmented__btn").forEach(btn => {
     btn.addEventListener("click", () => setSize(parseInt(btn.dataset.size, 10)));
@@ -355,8 +320,8 @@ window.addEventListener("load", () => {
   const undoBtn = document.getElementById("undoBtn");
   if (undoBtn) undoBtn.addEventListener("click", undoMove);
 
-  const skipBtn = document.getElementById('skipBtn');
-  if (skipBtn) skipBtn.addEventListener('click', skipTurn);
+  const skipBtn = document.getElementById("skipBtn");
+  if (skipBtn) skipBtn.addEventListener("click", skipTurn);
 
   // Cmd/Ctrl+Z als Shortcut
   document.addEventListener("keydown", (e) => {

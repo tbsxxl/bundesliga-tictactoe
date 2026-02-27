@@ -21,6 +21,24 @@ function setUndoButtonState() {
   btn.disabled = moveHistory.length === 0;
 }
 
+function setSkipButtonState(){
+  const btn = document.getElementById("skipBtn");
+  if (!btn) return;
+  btn.disabled = gameLocked;
+}
+
+function skipTurn(){
+  if (gameLocked) return;
+  // Pass zählt als Aktion und ist rückgängig machbar
+  moveHistory.push({ type: 'skip', player: currentPlayer });
+  setUndoButtonState();
+
+  currentPlayer = currentPlayer === "X" ? "O" : "X";
+  setCurrentPlayerLabel();
+
+  if (navigator.vibrate) navigator.vibrate(8);
+}
+
 function shuffleFisherYates(arr) {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -90,6 +108,7 @@ function lockBoard(){
     cell.style.pointerEvents = "none";
     cell.style.opacity = "0.98";
   });
+  setSkipButtonState();
 }
 
 function unlockBoard(){
@@ -98,6 +117,7 @@ function unlockBoard(){
     cell.style.pointerEvents = "auto";
     cell.style.opacity = "1";
   });
+  setSkipButtonState();
 }
 
 function clearWinHighlights(){
@@ -109,6 +129,24 @@ function undoMove(){
 
   const size = lastSize;
   const last = moveHistory.pop();
+
+  // Wenn vorher gewonnen wurde: Ergebnis/Highlights entfernen und wieder spielbar machen
+  if (gameLocked) {
+    unlockBoard();
+    setResult("");
+  }
+  clearWinHighlights();
+
+  if (last.type === "skip") {
+    // Spieler zurücksetzen (wer übersprungen hat, ist wieder dran)
+    currentPlayer = last.player;
+    setCurrentPlayerLabel();
+    setUndoButtonState();
+    setSkipButtonState();
+    return;
+  }
+
+  // Default: normaler Zug
   boardState[last.r][last.c] = "?";
 
   // DOM-Update
@@ -123,17 +161,11 @@ function undoMove(){
     }
   }
 
-  // Wenn vorher gewonnen wurde: Ergebnis/Highlights entfernen und wieder spielbar machen
-  if (gameLocked) {
-    unlockBoard();
-    setResult("");
-  }
-  clearWinHighlights();
-
   // Spieler zurücksetzen (der Spieler des entfernten Zugs ist wieder dran)
   currentPlayer = last.player;
   setCurrentPlayerLabel();
   setUndoButtonState();
+  setSkipButtonState();
 }
 
 function generateBoard(forceNewTeams = true) {
@@ -180,7 +212,7 @@ function generateBoard(forceNewTeams = true) {
         if (boardState[r][c] !== "?") return;
 
         boardState[r][c] = currentPlayer;
-        moveHistory.push({ r, c, player: currentPlayer });
+        moveHistory.push({ type: 'move', r, c, player: currentPlayer });
         span.textContent = currentPlayer;
         span.classList.add(`player-${currentPlayer.toLowerCase()}`);
 
@@ -207,6 +239,7 @@ function generateBoard(forceNewTeams = true) {
   setResult("");
   setCurrentPlayerLabel();
   setUndoButtonState();
+  setSkipButtonState();
 
   // Fit Board nach Render
   requestAnimationFrame(() => fitBoardToViewport(size));
@@ -297,6 +330,9 @@ window.addEventListener("load", () => {
 
   const undoBtn = document.getElementById("undoBtn");
   if (undoBtn) undoBtn.addEventListener("click", undoMove);
+
+  const skipBtn = document.getElementById("skipBtn");
+  if (skipBtn) skipBtn.addEventListener("click", skipTurn);
 
   // Cmd/Ctrl+Z als Shortcut
   document.addEventListener("keydown", (e) => {

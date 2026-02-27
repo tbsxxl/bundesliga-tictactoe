@@ -174,7 +174,8 @@ body.ios{
   display:flex;
   gap: 10px;
   align-items:center;
-}
+  flex-wrap: wrap;
+\}
 
 .switch-row{
   display:flex;
@@ -369,4 +370,10 @@ body.compact .team-logo span{ display:none; }
   letter-spacing: -0.01em;
   font-size: clamp(16px, 3.5vw, 22px);
   color: var(--muted);
+}
+
+
+.btn-row .btn{ flex:1; min-width: 160px; }
+@media (max-width: 520px){
+  .btn-row .btn{ min-width: 0; }
 }

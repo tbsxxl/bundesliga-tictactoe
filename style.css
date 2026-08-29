@@ -370,3 +370,240 @@ body.compact .team-logo span{ display:none; }
   font-size: clamp(16px, 3.5vw, 22px);
   color: var(--muted);
 }
+
+.rule-hint{
+  width: 100%;
+  margin: 2px 0 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.used-players-panel{
+  margin-top: 10px;
+  padding: 10px 14px;
+  display:flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: baseline;
+}
+
+.used-players__label{
+  font-weight: 800;
+  font-size: 13px;
+  color: rgba(17,17,20,0.6);
+  white-space: nowrap;
+}
+
+.used-players__list{
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text);
+}
+
+/* --- Spieler-Abfrage-Modal --- */
+.modal-overlay{
+  display:none;
+  position: fixed;
+  inset: 0;
+  background: rgba(10,10,12,0.46);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 1000;
+}
+
+.modal-overlay.is-open{
+  display:flex;
+}
+
+.modal-card{
+  width: 100%;
+  max-width: 420px;
+  background: var(--card-solid);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 24px 60px rgba(0,0,0,0.32);
+  border: 1px solid rgba(0,0,0,0.08);
+  padding: 20px;
+}
+
+.modal-title{
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}
+
+.modal-sub{
+  margin: 0 0 2px;
+  display:flex;
+  align-items:center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-weight: 800;
+}
+
+.modal-team{
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(200,16,46,0.10);
+  color: var(--accent);
+  font-size: 14px;
+}
+
+.modal-vs{
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.modal-hint{
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.modal-input{
+  width: 100%;
+  height: var(--tap);
+  border-radius: 14px;
+  border: 2px solid rgba(0,0,0,0.10);
+  padding: 0 14px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  background: rgba(120,120,128,0.08);
+}
+
+.modal-input:focus{
+  outline: none;
+  border-color: var(--accent);
+}
+
+.modal-feedback{
+  min-height: 18px;
+  margin: 10px 0 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.modal-feedback.is-success{ color: #1a8f43; }
+.modal-feedback.is-error{ color: var(--danger); }
+.modal-feedback.is-warn{ color: #b5850a; }
+
+.modal-manual{
+  margin-top: 12px;
+  display:none;
+}
+
+.modal-manual.is-visible{
+  display:flex;
+}
+
+.modal-tm-link{
+  display:none;
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.modal-tm-link.is-visible{
+  display:inline-block;
+}
+
+.modal-tm-link:active{
+  opacity: 0.7;
+}
+
+.transfer-history{
+  display:none;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(120,120,128,0.08);
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.transfer-history.is-visible{
+  display:block;
+}
+
+.transfer-history__title{
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(17,17,20,0.5);
+  margin-bottom: 6px;
+}
+
+.transfer-history__list{
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display:flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.transfer-history__list li{
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.modal-debug-toggle{
+  display:none;
+  margin-top: 8px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.modal-debug-toggle.is-visible{
+  display:inline-block;
+}
+
+.modal-debug-raw{
+  display:none;
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(0,0,0,0.12);
+  background: rgba(120,120,128,0.08);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--text);
+  resize: vertical;
+}
+
+.modal-debug-raw.is-visible{
+  display:block;
+}
+
+.modal-actions{
+  margin-top: 16px;
+  display:flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.modal-actions .btn{
+  height: 44px;
+  padding: 0 14px;
+}

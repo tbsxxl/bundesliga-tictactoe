@@ -2,18 +2,20 @@ let currentPlayer = 'X';
 
 const teams = [
   "FC Bayern München", "Borussia Dortmund", "RB Leipzig", "Bayer Leverkusen",
-  "VfB Stuttgart", "Eintracht Frankfurt", "TSG Hoffenheim", "1. FC Heidenheim",
-  "Werder Bremen", "SC Freiburg", "FC Augsburg", "VfL Wolfsburg",
-  "Borussia Mönchengladbach", "1. FC Union Berlin", "1. FSV Mainz 05",
-  "1. FC Köln", "FC St. Pauli", "Hamburger SV"
+  "VfB Stuttgart", "Eintracht Frankfurt", "TSG Hoffenheim", "Werder Bremen",
+  "SC Freiburg", "FC Augsburg", "Borussia Mönchengladbach", "1. FC Union Berlin",
+  "1. FSV Mainz 05", "1. FC Köln", "Hamburger SV",
+  "FC Schalke 04", "SV 07 Elversberg", "SC Paderborn 07"
 ];
 
 let boardState = [];
 let topTeams = [];
 let sideTeams = [];
 let lastSize = 3;
-let moveHistory = []; // Stack: { type:'move', r, c, player } | { type:'skip', player }
+let moveHistory = []; // Stack: { type:'move', r, c, player, playerName } | { type:'skip', player }
 let gameLocked = false;
+let usedPlayers = []; // [{ norm, displayName }]
+let pending = null;   // { r, c, span, teamA, teamB, candidateName }
 
 function setUndoButtonState() {
   const btn = document.getElementById("undoBtn");
@@ -104,6 +106,476 @@ function clearWinHighlights(){
   document.querySelectorAll(".cell").forEach(el => el.classList.remove("correct-x","correct-o"));
 }
 
+function normalizeName(str) {
+  return (str || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[.,]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/* --- Automatische Transfermarkt-Prüfung ---
+   Die alte fly.dev-Test-API ist unzuverlässig. Stattdessen wird Transfermarkt
+   über Jina AI als serverseitigen HTML->Markdown-Reader abgefragt. Dadurch muss
+   der Mitspieler nicht selbst auf Transfermarkt suchen.
+
+   Ablauf:
+   1. Transfermarkt-Schnellsuche nach dem eingegebenen Namen
+   2. bestes exaktes/nahezu exaktes Spielerprofil bestimmen
+   3. Spielerprofil abrufen und Karriere-/Jugendvereine auswerten
+   4. beide gesuchten Vereine automatisch prüfen
+*/
+const TM_READER_BASE = "https://r.jina.ai/http://www.transfermarkt.de";
+
+const teamKeywords = {
+  "FC Bayern München": ["bayern munchen", "bayern münchen", "bayern munich", "fc bayern"],
+  "Borussia Dortmund": ["borussia dortmund", "dortmund"],
+  "RB Leipzig": ["rb leipzig", "rasenballsport leipzig", "leipzig"],
+  "Bayer Leverkusen": ["bayer leverkusen", "leverkusen"],
+  "VfB Stuttgart": ["vfb stuttgart", "stuttgart"],
+  "Eintracht Frankfurt": ["eintracht frankfurt", "frankfurt"],
+  "TSG Hoffenheim": ["tsg hoffenheim", "1899 hoffenheim", "hoffenheim"],
+  "Werder Bremen": ["werder bremen", "sv werder bremen", "bremen"],
+  "SC Freiburg": ["sc freiburg", "freiburg"],
+  "FC Augsburg": ["fc augsburg", "augsburg"],
+  "Borussia Mönchengladbach": ["borussia monchengladbach", "borussia mönchengladbach", "monchengladbach", "gladbach"],
+  "1. FC Union Berlin": ["1 fc union berlin", "union berlin", "fc union berlin"],
+  "1. FSV Mainz 05": ["1 fsv mainz 05", "fsv mainz", "mainz 05", "mainz"],
+  "1. FC Köln": ["1 fc koln", "1. fc köln", "fc koln", "fc köln", "koln", "köln"],
+  "Hamburger SV": ["hamburger sv", "hamburg sv", "hsv"],
+  "FC Schalke 04": ["fc schalke 04", "schalke 04", "schalke"],
+  "SV 07 Elversberg": ["sv elversberg", "sv 07 elversberg", "elversberg"],
+  "SC Paderborn 07": ["sc paderborn", "sc paderborn 07", "paderborn"],
+};
+
+function clubNameMatchesTeam(clubName, team) {
+  const norm = normalizeName(clubName);
+  if (team === "1. FC Köln" && (norm.includes("fortuna") || norm.includes("dusseldorf"))) return false;
+  if (team === "1. FC Union Berlin" && !norm.includes("union")) return false;
+  return (teamKeywords[team] || []).some(k => norm.includes(normalizeName(k)));
+}
+
+function textContainsTeam(text, team) {
+  const norm = normalizeName(text);
+  return (teamKeywords[team] || []).some(k => {
+    const n = normalizeName(k);
+    // word-ish matching prevents e.g. "hamburg" from matching unrelated text
+    return norm.includes(n);
+  });
+}
+
+async function fetchWithTimeout(url, ms){
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(url, {
+      signal: controller.signal,
+      headers: { "Accept": "text/plain,text/html,application/json,*/*" }
+    });
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+function slugToName(slug) {
+  return slug
+    .split('-')
+    .filter(Boolean)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
+// Der zuverlässigste Name steckt im URL-Slug selbst (.../keven-schlotterbeck/.../spieler/413843),
+// nicht im umgebenden Fließtext. Pro Spieler-ID wird der längste (aussagekräftigste) Slug behalten;
+// Platzhalter wie "-" oder "x" werden ignoriert.
+function extractPlayerCandidates(markdown) {
+  const bySlug = new Map();
+  const re = /transfermarkt\.(?:de|com|co\.uk)\/([a-z0-9\-]+)\/[a-z\-]+\/spieler\/(\d+)/gi;
+  let m;
+  while ((m = re.exec(markdown || ""))) {
+    const slug = m[1];
+    const id = m[2];
+    if (!slug || slug.length < 3 || slug === "x") continue;
+    const prev = bySlug.get(id);
+    if (!prev || slug.length > prev.length) bySlug.set(id, slug);
+  }
+  return [...bySlug.entries()].map(([id, slug]) => ({ id, name: slugToName(slug) }));
+}
+
+function scorePlayerCandidate(candidate, input) {
+  const a = normalizeName(input), b = normalizeName(candidate.name);
+  if (a === b) return 1000;
+  if (b.includes(a) || a.includes(b)) return 700;
+  const aw = new Set(a.split(' ')), bw = new Set(b.split(' '));
+  let common = 0; aw.forEach(w => { if (w.length > 2 && bw.has(w)) common++; });
+  return common * 100 - Math.abs(a.length - b.length);
+}
+
+function extractTransfermarktProfileUrls(markdown) {
+  const urls = [];
+  const seen = new Set();
+  const re = /https?:\/\/www\.transfermarkt\.(?:de|com|co\.uk)\/[^\s)]+\/profil\/spieler\/\d+[^\s)]*/gi;
+  let m;
+  while ((m = re.exec(markdown || ""))) {
+    const url = m[0].replace(/[.,;]+$/, '');
+    if (!seen.has(url)) { seen.add(url); urls.push(url); }
+  }
+  return urls;
+}
+
+async function searchTransfermarktPlayer(name) {
+  const searchUrl = `${TM_READER_BASE}/schnellsuche/ergebnis/schnellsuche?query=${encodeURIComponent(name)}`;
+  const res = await fetchWithTimeout(searchUrl, 12000);
+  if (!res.ok) throw new Error(`Transfermarkt-Suche HTTP ${res.status}`);
+  const md = await res.text();
+  const candidates = extractPlayerCandidates(md);
+  if (!candidates.length) {
+    // Fallback: search page can sometimes be returned with links encoded differently.
+    const urls = extractTransfermarktProfileUrls(md);
+    if (!urls.length) return null;
+    const idMatch = urls[0].match(/spieler\/(\d+)/i);
+    return idMatch ? { id: idMatch[1], name } : null;
+  }
+  candidates.sort((a,b) => scorePlayerCandidate(b,name) - scorePlayerCandidate(a,name));
+  return candidates[0];
+}
+
+// Statt der allgemeinen Profilseite (voller Rauschen: Spieltermine, Marktwertverlauf, Geb.-Datum)
+// wird direkt die Transfers-Unterseite geladen – dort steht die echte Wechselhistorie.
+async function fetchTransfermarktTransfers(playerId) {
+  // Die /transfers-Seite kann von r.jina.ai gekürzt werden. Für die
+  // "hat für Verein gespielt"-Prüfung laden wir zusätzlich die
+  // Rückennummern-Historie, die Transfermarkt als Karriereübersicht führt.
+  const urls = [
+    `https://www.transfermarkt.de/x/transfers/spieler/${playerId}`,
+    `https://www.transfermarkt.de/x/rueckennummern/spieler/${playerId}`,
+    `https://www.transfermarkt.de/x/profil/spieler/${playerId}`
+  ];
+  const chunks = [];
+  for (const url of urls) {
+    try {
+      const res = await fetchWithTimeout(`https://r.jina.ai/${url}`, 12000);
+      if (!res.ok) continue;
+      const md = await res.text();
+      if (md && md.length > 200) chunks.push(`\n\n===== QUELLE: ${url} =====\n${md}`);
+    } catch (_) {}
+  }
+  if (!chunks.length) throw new Error("Transfermarkt-Karrieredaten konnten nicht geladen werden");
+  return chunks.join("\n");
+}
+
+// Best-effort: Zeilen mit Datum (DD.MM.YYYY) als "Transferzeile" interpretieren, aber
+// Spieltermine (Wochentag + Uhrzeit) und Stammdaten (Geb./Marktwertverlauf) explizit rausfiltern.
+// Robuste strukturierte Daten gibt es hier nicht (nur Markdown-Fließtext) – daher bleibt
+// der Transfermarkt-Link immer sichtbar als verlässliche Rückfallebene.
+function extractCareerClubs(markdown) {
+  if (!markdown) return [];
+  const clubs = [];
+  const seen = new Set();
+  // Transfermarkt renders club links as /verein/<id>. The visible link text is
+  // much more reliable than trying to infer clubs from arbitrary page text.
+  const re = /\[([^\]\n]{2,100})\]\(https?:\/\/www\.transfermarkt\.(?:de|com|co\.uk)\/[^\s)]*\/verein\/\d+[^\s)]*\)/gi;
+  let m;
+  while ((m = re.exec(markdown))) {
+    const name = m[1].replace(/\s+/g, ' ').trim();
+    if (!name || /Transfermarkt|Startseite|Wappen|Logo|Detailsuche/i.test(name)) continue;
+    const key = normalizeName(name);
+    if (key.length < 3 || seen.has(key)) continue;
+    seen.add(key);
+    clubs.push(name);
+  }
+  return clubs;
+}
+
+function extractTransferHistory(markdown) {
+  // Kept for backwards compatibility with the UI; now returns the clean
+  // career-club list rather than noisy dates/match links.
+  return extractCareerClubs(markdown);
+}
+
+// Kompakte Diagnose statt riesigem Rohtext-Dump: zählt, ob typische Transfer-Stichwörter
+// überhaupt IRGENDWO im Dokument vorkommen. So lässt sich schnell klären, ob die Transfer-
+// tabelle im von r.jina.ai eingefangenen HTML überhaupt vorhanden ist (z. B. falls sie bei
+// Transfermarkt per JavaScript nachgeladen wird und im Reader-Ergebnis fehlt).
+function buildDiagnosticsSummary(markdown, teamA, teamB){
+  if (!markdown) return "Keine Daten erhalten.";
+  const lines = [`Gesamtlänge: ${markdown.length} Zeichen`, `Karrierequellen: Transferhistorie + Rückennummern-Historie + Profil`];
+  const keywords = ["Saison", "Ablöse", "ablösefrei", "Vereinswechsel", "Leihe", "Transferhistorie", "Datum"];
+  keywords.forEach(k => {
+    const idx = markdown.indexOf(k);
+    lines.push(`enthält "${k}": ${idx === -1 ? "nein" : "ja (Position " + idx + ")"}`);
+  });
+  lines.push(`enthält "${teamA}"-Stichwort: ${textContainsTeam(markdown, teamA)}`);
+  lines.push(`enthält "${teamB}"-Stichwort: ${textContainsTeam(markdown, teamB)}`);
+
+  const idx = markdown.search(/Saison|Ablöse|Vereinswechsel|Transferhistorie/i);
+  lines.push("---");
+  if (idx !== -1) {
+    lines.push("Ausschnitt ab erstem Treffer:");
+    lines.push(markdown.slice(Math.max(0, idx - 100), idx + 1500));
+  } else {
+    lines.push("Kein einziger Transfer-Marker im gesamten Dokument gefunden.");
+    lines.push("Letzte 1000 Zeichen (oft das Seitenende, zur Kontrolle):");
+    lines.push(markdown.slice(-1000));
+  }
+  return lines.join("\n");
+}
+
+// Rückgabe: { status: 'valid' | 'checked_no_match' | 'not_found' | 'error', id?, displayName?, matchedTeams?, transfers? }
+async function tryAutoCheck(name, teamA, teamB){
+  try {
+    const best = await searchTransfermarktPlayer(name);
+    if (!best || !best.id) return { status: "not_found" };
+
+    const transfersMd = await fetchTransfermarktTransfers(best.id);
+    const diagnostics = buildDiagnosticsSummary(transfersMd, teamA, teamB);
+    console.log(`[TM-Check] Spieler-ID ${best.id}\n${diagnostics}`);
+
+    const careerClubs = extractCareerClubs(transfersMd);
+    const careerText = careerClubs.join(" | ");
+    const hasA = textContainsTeam(careerText, teamA) || textContainsTeam(transfersMd, teamA);
+    const hasB = textContainsTeam(careerText, teamB) || textContainsTeam(transfersMd, teamB);
+
+    // Show all identifiable clubs in the player's Transfermarkt career.
+    if (hasA && hasB) {
+      return { status: "valid", id: best.id, displayName: best.name || name, matchedTeams: [teamA, teamB], clubs: careerClubs, transfers: careerClubs, raw: diagnostics };
+    }
+    return { status: "checked_no_match", id: best.id, displayName: best.name || name, hasA, hasB, clubs: careerClubs, transfers: careerClubs, raw: diagnostics };
+  } catch (err) {
+    console.warn("Transfermarkt-Autoprüfung fehlgeschlagen:", err);
+    return { status: "error" };
+  }
+}
+
+function showTransferHistory(rows){
+  const wrap = document.getElementById("transferHistory");
+  const list = document.getElementById("transferHistoryList");
+  if (!wrap || !list) return;
+  list.innerHTML = "";
+  if (!rows || !rows.length) {
+    wrap.classList.remove("is-visible");
+    return;
+  }
+  rows.forEach(r => {
+    const li = document.createElement("li");
+    li.textContent = r;
+    list.appendChild(li);
+  });
+  wrap.classList.add("is-visible");
+}
+
+let suggestDebounceTimer = null;
+async function fetchNameSuggestions(query){
+  try {
+    const searchUrl = `${TM_READER_BASE}/schnellsuche/ergebnis/schnellsuche?query=${encodeURIComponent(query)}`;
+    const res = await fetchWithTimeout(searchUrl, 8000);
+    if (!res.ok) return;
+    const md = await res.text();
+    const candidates = extractPlayerCandidates(md).slice(0, 8);
+    const datalist = document.getElementById("playerSuggestions");
+    if (!datalist) return;
+    datalist.innerHTML = "";
+    candidates.forEach(c => {
+      const opt = document.createElement("option");
+      opt.value = c.name;
+      datalist.appendChild(opt);
+    });
+  } catch (err) {
+    // Vorschläge sind reiner Komfort – ein Fehlschlag blockiert nie die Eingabe
+  }
+}
+
+function showDebugRaw(text){
+  const toggle = document.getElementById("debugToggle");
+  const box = document.getElementById("debugRaw");
+  if (!toggle || !box) return;
+  if (!text) {
+    toggle.classList.remove("is-visible");
+    box.classList.remove("is-visible");
+    box.value = "";
+    return;
+  }
+  box.value = text;
+  toggle.classList.add("is-visible");
+  toggle.textContent = "🐞 Rohdaten anzeigen (zum Debuggen kopieren)";
+  box.classList.remove("is-visible");
+}
+
+function updateUsedPlayersDisplay(){
+  const el = document.getElementById("usedPlayersList");
+  if (!el) return;
+  el.textContent = usedPlayers.length
+    ? usedPlayers.map(p => p.displayName).join(", ")
+    : "–";
+}
+
+function setModalFeedback(text, tone){
+  const el = document.getElementById("modalFeedback");
+  if (!el) return;
+  el.textContent = text || "";
+  el.className = "modal-feedback" + (tone ? ` is-${tone}` : "");
+}
+
+function showTransfermarktLink(show, name, id){
+  const link = document.getElementById("transfermarktLink");
+  const nameEl = document.getElementById("tmLinkName");
+  if (!link) return;
+  link.classList.toggle("is-visible", show);
+  if (show) {
+    nameEl.textContent = name || "Spieler";
+    // Mit bekannter Spieler-ID: direkter, verlässlicher Profil-Link (Slug ist egal, TM leitet per ID um).
+    // Ohne ID: Fallback auf die Schnellsuche nach dem eingegebenen Namen.
+    link.href = id
+      ? `https://www.transfermarkt.de/x/profil/spieler/${id}`
+      : `https://www.transfermarkt.de/schnellsuche/ergebnis/schnellsuche?query=${encodeURIComponent(name || "")}`;
+  }
+}
+
+function showManualConfirm(show){
+  const row = document.getElementById("manualConfirmRow");
+  const checkbox = document.getElementById("manualConfirm");
+  if (!row) return;
+  row.classList.toggle("is-visible", show);
+  if (!show && checkbox) checkbox.checked = false;
+}
+
+function openNamePrompt(r, c, span, teamA, teamB){
+  pending = { r, c, span, teamA, teamB, candidateName: null };
+
+  document.getElementById("modalTeamA").textContent = teamA;
+  document.getElementById("modalTeamB").textContent = teamB;
+
+  const input = document.getElementById("playerInput");
+  input.value = "";
+  setModalFeedback("", "");
+  showManualConfirm(false);
+  showTransfermarktLink(false);
+  showTransferHistory([]);
+  showDebugRaw(null);
+  document.getElementById("modalConfirm").disabled = true;
+
+  const modal = document.getElementById("nameModal");
+  modal.classList.add("is-open");
+  modal.setAttribute("aria-hidden", "false");
+
+  setTimeout(() => input.focus(), 30);
+}
+
+function closeNamePrompt(){
+  const modal = document.getElementById("nameModal");
+  modal.classList.remove("is-open");
+  modal.setAttribute("aria-hidden", "true");
+  pending = null;
+}
+
+async function checkAnswer(){
+  if (!pending) return;
+  const currentPending = pending;
+
+  const input = document.getElementById("playerInput");
+  const raw = input.value.trim();
+  const confirmBtn = document.getElementById("modalConfirm");
+  const checkBtn = document.getElementById("modalCheck");
+
+  if (!raw) {
+    setModalFeedback("Bitte einen Namen eingeben.", "error");
+    showManualConfirm(false);
+    showTransfermarktLink(false);
+    showTransferHistory([]);
+    confirmBtn.disabled = true;
+    pending.candidateName = null;
+    return;
+  }
+
+  const norm = normalizeName(raw);
+  if (usedPlayers.some(p => p.norm === norm)) {
+    setModalFeedback("Dieser Spieler wurde in dieser Runde schon genannt.", "error");
+    showManualConfirm(false);
+    showTransfermarktLink(false);
+    showTransferHistory([]);
+    confirmBtn.disabled = true;
+    pending.candidateName = null;
+    return;
+  }
+
+  // Fallback-Link steht sofort bereit, auch während/falls die Auto-Prüfung scheitert
+  setModalFeedback("Prüfe automatisch über Transfermarkt …", "warn");
+  showTransfermarktLink(true, raw);
+  showManualConfirm(false);
+  showTransferHistory([]);
+  confirmBtn.disabled = true;
+  checkBtn.disabled = true;
+
+  const result = await tryAutoCheck(raw, pending.teamA, pending.teamB);
+
+  // Falls der Dialog inzwischen geschlossen/gewechselt wurde: nichts mehr anfassen
+  if (pending !== currentPending) return;
+  checkBtn.disabled = false;
+
+  if (result.status === "valid") {
+    setModalFeedback(`✓ ${result.displayName}: automatisch bestätigt (laut Transfermarkt-Karriere für beide Vereine).`, "success");
+    showManualConfirm(false);
+    showTransfermarktLink(true, result.displayName, result.id);
+    showTransferHistory(result.transfers);
+    showDebugRaw(result.raw);
+    pending.candidateName = result.displayName;
+    confirmBtn.disabled = false;
+  } else if (result.status === "checked_no_match") {
+    setModalFeedback(`${result.displayName} gefunden, aber laut Karrierestationen nicht eindeutig für beide Vereine. Selbst prüfen und bei Einigkeit bestätigen.`, "warn");
+    showManualConfirm(true);
+    showTransfermarktLink(true, result.displayName, result.id);
+    showTransferHistory(result.transfers);
+    showDebugRaw(result.raw);
+    pending.candidateName = result.displayName;
+    confirmBtn.disabled = true;
+  } else {
+    // not_found oder error (Timeout, CORS, API down)
+    const reason = result.status === "not_found" ? "Kein Treffer gefunden" : "Automatische Prüfung nicht möglich";
+    setModalFeedback(`${reason}. Auf Transfermarkt nachschlagen und bei Einigkeit gemeinsam bestätigen.`, "warn");
+    showManualConfirm(true);
+    showTransfermarktLink(true, raw);
+    showTransferHistory([]);
+    showDebugRaw(null);
+    pending.candidateName = raw;
+    confirmBtn.disabled = true;
+  }
+}
+
+function commitMove(){
+  if (!pending || !pending.candidateName) return;
+
+  const confirmBtn = document.getElementById("modalConfirm");
+  if (confirmBtn.disabled) return;
+
+  const { r, c, span, candidateName } = pending;
+
+  boardState[r][c] = currentPlayer;
+  usedPlayers.push({ norm: normalizeName(candidateName), displayName: candidateName });
+  moveHistory.push({ type: "move", r, c, player: currentPlayer, playerName: candidateName });
+
+  span.textContent = currentPlayer;
+  span.classList.add(`player-${currentPlayer.toLowerCase()}`);
+
+  updateUsedPlayersDisplay();
+  setUndoButtonState();
+  closeNamePrompt();
+
+  if (navigator.vibrate) navigator.vibrate(12);
+
+  const winner = checkWin(lastSize);
+  if (winner) {
+    setResult(`🏆 Spieler ${winner} gewinnt!`, winner === "X" ? "x" : "o");
+    lockBoard();
+    if (navigator.vibrate) navigator.vibrate([20, 40, 20]);
+    return;
+  }
+
+  currentPlayer = currentPlayer === "X" ? "O" : "X";
+  setCurrentPlayerLabel();
+}
+
 function undoMove(){
   if (moveHistory.length === 0) return;
 
@@ -120,6 +592,8 @@ function undoMove(){
 
   // Default: normal move
   boardState[last.r][last.c] = "?";
+  if (usedPlayers.length) usedPlayers.pop();
+  updateUsedPlayersDisplay();
 
   // DOM-Update
   const cellEls = Array.from(document.querySelectorAll(".cell"));
@@ -161,8 +635,10 @@ function skipTurn(){
 function generateBoard(forceNewTeams = true) {
   currentPlayer = 'X';
   moveHistory = [];
+  usedPlayers = [];
   gameLocked = false;
   setUndoButtonState();
+  updateUsedPlayersDisplay();
 
   const size = lastSize;
 
@@ -199,27 +675,11 @@ function generateBoard(forceNewTeams = true) {
       cell.appendChild(span);
 
       cell.addEventListener("click", () => {
+        if (gameLocked) return;
         if (boardState[r][c] !== "?") return;
+        if (document.getElementById("nameModal").classList.contains("is-open")) return;
 
-        boardState[r][c] = currentPlayer;
-        moveHistory.push({ type: 'move', r, c, player: currentPlayer });
-        span.textContent = currentPlayer;
-        span.classList.add(`player-${currentPlayer.toLowerCase()}`);
-
-        setUndoButtonState();
-
-        if (navigator.vibrate) navigator.vibrate(12);
-
-        const winner = checkWin(size);
-        if (winner) {
-          setResult(`🏆 Spieler ${winner} gewinnt!`, winner === "X" ? "x" : "o");
-          lockBoard();
-          if (navigator.vibrate) navigator.vibrate([20, 40, 20]);
-          return;
-        }
-
-        currentPlayer = currentPlayer === "X" ? "O" : "X";
-        setCurrentPlayerLabel();
+        openNamePrompt(r, c, span, sideTeams[r], topTeams[c]);
       });
 
       grid.appendChild(cell);
@@ -340,6 +800,54 @@ window.addEventListener("load", () => {
   document.getElementById("logoOnly").addEventListener("change", (e) => {
     document.body.classList.toggle("only-logos", e.target.checked);
     generateBoard(false);
+  });
+
+  // --- Spieler-Abfrage-Modal ---
+  document.getElementById("modalCheck").addEventListener("click", checkAnswer);
+
+  document.getElementById("debugToggle").addEventListener("click", () => {
+    const box = document.getElementById("debugRaw");
+    const nowVisible = !box.classList.contains("is-visible");
+    box.classList.toggle("is-visible", nowVisible);
+    if (nowVisible) {
+      box.focus();
+      box.select();
+    }
+  });
+  document.getElementById("modalConfirm").addEventListener("click", commitMove);
+  document.getElementById("modalCancel").addEventListener("click", closeNamePrompt);
+
+  document.getElementById("manualConfirm").addEventListener("change", (e) => {
+    const confirmBtn = document.getElementById("modalConfirm");
+    confirmBtn.disabled = !e.target.checked || !pending || !pending.candidateName;
+  });
+
+  document.getElementById("nameModal").addEventListener("click", (e) => {
+    if (e.target.id === "nameModal") closeNamePrompt();
+  });
+
+  document.getElementById("playerInput").addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    const confirmBtn = document.getElementById("modalConfirm");
+    if (!confirmBtn.disabled) {
+      commitMove();
+    } else {
+      checkAnswer();
+    }
+  });
+
+  document.getElementById("playerInput").addEventListener("input", (e) => {
+    const q = e.target.value.trim();
+    clearTimeout(suggestDebounceTimer);
+    if (q.length < 3) return;
+    suggestDebounceTimer = setTimeout(() => fetchNameSuggestions(q), 450);
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && document.getElementById("nameModal").classList.contains("is-open")) {
+      closeNamePrompt();
+    }
   });
 
   setSize(3);

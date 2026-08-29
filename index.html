@@ -48,10 +48,17 @@
           </span>
         </label>
       </div>
+
+      <p class="rule-hint">Nenne für jedes Feld einen Spieler, der für beide Vereine gespielt hat – bei Zweifel auf Transfermarkt nachschlagen.</p>
     </section>
 
     <section class="board-card">
       <div id="grid" class="grid" aria-label="Spielfeld"></div>
+    </section>
+
+    <section class="panel used-players-panel">
+      <span class="used-players__label">Genannte Spieler:</span>
+      <span id="usedPlayersList" class="used-players__list">–</span>
     </section>
 
     <section class="result">
@@ -59,7 +66,52 @@
     </section>
   </main>
 
-  <script src="logos.js"></script>
-  <script src="main.js"></script>
+  <div id="nameModal" class="modal-overlay" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <h2 id="modalTitle" class="modal-title">Nenne einen Spieler</h2>
+
+      <p class="modal-sub">
+        <span id="modalTeamA" class="modal-team"></span>
+        <span class="modal-vs">&amp;</span>
+        <span id="modalTeamB" class="modal-team"></span>
+      </p>
+      <p class="modal-hint">Wer hat für beide Vereine gespielt?</p>
+
+      <input id="playerInput" class="modal-input" type="text" placeholder="Name des Spielers" autocomplete="off" list="playerSuggestions" />
+      <datalist id="playerSuggestions"></datalist>
+
+      <p id="modalFeedback" class="modal-feedback"></p>
+
+      <div id="transferHistory" class="transfer-history">
+        <div class="transfer-history__title">Vereine in der Transfermarkt-Karriere</div>
+        <ul id="transferHistoryList" class="transfer-history__list"></ul>
+      </div>
+
+      <a id="transfermarktLink" class="modal-tm-link" href="#" target="_blank" rel="noopener">
+        🔎 „<span id="tmLinkName">Name</span>" auf Transfermarkt nachschlagen
+      </a>
+
+      <button type="button" id="debugToggle" class="modal-debug-toggle">🐞 Rohdaten anzeigen (zum Debuggen kopieren)</button>
+      <textarea id="debugRaw" class="modal-debug-raw" readonly rows="6"></textarea>
+
+      <label id="manualConfirmRow" class="switch-row modal-manual">
+        <span class="switch-row__label">Laut Historie oben bestätigen</span>
+        <span class="ios-switch">
+          <input type="checkbox" id="manualConfirm" />
+          <span class="ios-switch__track" aria-hidden="true"></span>
+          <span class="ios-switch__thumb" aria-hidden="true"></span>
+        </span>
+      </label>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" id="modalCancel">Abbrechen</button>
+        <button type="button" class="btn btn-secondary" id="modalCheck">Prüfen</button>
+        <button type="button" class="btn btn-primary" id="modalConfirm" disabled>Feld setzen</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="logos.js?v=1788054500"></script>
+  <script src="main.js?v=1788054500"></script>
 </body>
 </html>

@@ -37,6 +37,40 @@ function setCurrentPlayerLabel() {
   if (el) el.textContent = `Spieler ${currentPlayer} ist am Zug`;
 }
 
+/* --- Spielstand-Persistenz (localStorage) ---
+   Verhindert Datenverlust, wenn das Handy die Seite beim Tab-Wechsel
+   (z. B. Antippen des Transfermarkt-Links) im Hintergrund neu lädt. */
+const STORAGE_KEY = "bttt_state_v1";
+
+function saveState(resultText){
+  try {
+    const state = {
+      lastSize, topTeams, sideTeams, boardState,
+      currentPlayer, moveHistory, usedPlayers, gameLocked,
+      resultText: resultText || "",
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (err) {
+    // localStorage kann fehlen/voll sein (privater Modus etc.) – dann eben ohne Persistenz.
+  }
+}
+
+function loadState(){
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const state = JSON.parse(raw);
+    if (!state || !Array.isArray(state.boardState) || !Array.isArray(state.topTeams)) return null;
+    return state;
+  } catch (err) {
+    return null;
+  }
+}
+
+function clearSavedState(){
+  try { localStorage.removeItem(STORAGE_KEY); } catch (err) { /* ignore */ }
+}
+
 function setResult(text, tone = "muted") {
   const el = document.getElementById("result");
   if (!el) return;
@@ -173,7 +207,12 @@ async function fetchWithTimeout(url, ms){
   try {
     return await fetch(url, {
       signal: controller.signal,
-      headers: { "Accept": "text/plain,text/html,application/json,*/*" }
+      headers: {
+        "Accept": "text/plain,text/html,application/json,*/*",
+        // Weist r.jina.ai an, nicht ewig auf vollständiges JS-Rendering zu warten,
+        // sondern nach ~6s mit dem zu antworten, was bis dahin da ist.
+        "x-timeout": "6",
+      }
     });
   } finally {
     clearTimeout(t);
@@ -228,7 +267,7 @@ function extractTransfermarktProfileUrls(markdown) {
 
 async function searchTransfermarktPlayer(name) {
   const searchUrl = `${TM_READER_BASE}/schnellsuche/ergebnis/schnellsuche?query=${encodeURIComponent(name)}`;
-  const res = await fetchWithTimeout(searchUrl, 12000);
+  const res = await fetchWithTimeout(searchUrl, 9000);
   if (!res.ok) throw new Error(`Transfermarkt-Suche HTTP ${res.status}`);
   const md = await res.text();
   const candidates = extractPlayerCandidates(md);
@@ -249,19 +288,22 @@ async function fetchTransfermarktTransfers(playerId, slug = "") {
   // Die /transfers-Seite kann von r.jina.ai gekürzt werden. Für die
   // "hat für Verein gespielt"-Prüfung laden wir zusätzlich die
   // Rückennummern-Historie, die Transfermarkt als Karriereübersicht führt.
+  // Parallel statt nacheinander laden – das ist der größte Geschwindigkeitshebel,
+  // da drei serielle Requests sich sonst zu bis zu ~30s aufaddieren können.
   const urls = [
     `${TM_SITE}/${slug ? slug + "/" : ""}transfers/spieler/${playerId}`,
     `${TM_SITE}/${slug ? slug + "/" : ""}rueckennummern/spieler/${playerId}`,
     `${TM_SITE}/${slug ? slug + "/" : ""}profil/spieler/${playerId}`
   ];
+  const results = await Promise.allSettled(
+    urls.map(url => fetchWithTimeout(`https://r.jina.ai/${url}`, 9000).then(res => ({ url, res })))
+  );
   const chunks = [];
-  for (const url of urls) {
-    try {
-      const res = await fetchWithTimeout(`https://r.jina.ai/${url}`, 12000);
-      if (!res.ok) continue;
-      const md = await res.text();
-      if (md && md.length > 200) chunks.push(`\n\n===== QUELLE: ${url} =====\n${md}`);
-    } catch (_) {}
+  for (const r of results) {
+    if (r.status !== "fulfilled" || !r.value.res.ok) continue;
+    const { url, res } = r.value;
+    const md = await res.text();
+    if (md && md.length > 200) chunks.push(`\n\n===== QUELLE: ${url} =====\n${md}`);
   }
   if (!chunks.length) throw new Error("Transfermarkt-Karrieredaten konnten nicht geladen werden");
   return chunks.join("\n");
@@ -275,6 +317,7 @@ function extractCareerClubs(markdown) {
   if (!markdown) return [];
   const clubs = [];
   const seen = new Set();
+  const baseNamesSeen = new Set();
   const add = (value) => {
     if (!value) return;
     let name = value.replace(/\[[^\]]*\]\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();
@@ -283,15 +326,27 @@ function extractCareerClubs(markdown) {
     if (/^(Transfermarkt|Transferdetails|Transferzeitpunkt|Saison|Wettbewerb|Liga|Liga-Art|Trainer|Manager|Marktwert|Alter|Ablöse|Restvertragslaufzeit|Datum|Deutschland|Germany|Österreich|Austria|Schweiz|Switzerland|Frankreich|France|England|Spain|Spanien|Italy|Italien|Niederlande|Netherlands)$/i.test(name)) return;
     if (/nationalmannschaft|nationalteam|\b(?:U(?:15|16|17|18|19|20|21|23))\b/i.test(name)) return;
     if (/^(image|logo|wappen|news|community|statistik|detailsuche)/i.test(name)) return;
+    // Saison-Label wie "26/27" oder "2025/26" ist kein Verein (Reste von Saison-Auswahl-Links).
+    if (/^\d{2,4}\s*\/\s*\d{2,4}$/.test(name)) return;
     const key = normalizeName(name);
     if (seen.has(key)) return;
-    seen.add(key); clubs.push(name);
+    // Reserve-/Zweitmannschaften (" II", " 2") mit der Hauptmannschaft zusammenfassen,
+    // wenn diese ohnehin schon in der Liste steht.
+    const baseKey = normalizeName(name.replace(/\s+(ii|2)$/i, ''));
+    if (baseKey !== key && baseNamesSeen.has(baseKey)) return;
+    seen.add(key);
+    baseNamesSeen.add(baseKey === key ? key : baseKey);
+    clubs.push(name);
   };
 
-  // 1) Current/regular club links.
+  // 1) Current/regular club links. Saison-Auswahl-Links (.../saison_id/2015) werden
+  //    übersprungen – deren Linktext ist ein Saisonlabel ("15/16"), kein Vereinsname.
   const re = /\[([^\]\n]{2,100})\]\((https?:\/\/www\.transfermarkt\.(?:de|com|co\.uk)\/[^\s)]*\/verein\/\d+[^\s)]*)\)/gi;
   let m;
-  while ((m = re.exec(markdown))) add(m[1]);
+  while ((m = re.exec(markdown))) {
+    if (/saison_id/i.test(m[2])) continue;
+    add(m[1]);
+  }
 
   // 2) Transfermarkt's youth-club summary is plain text, not reliably linked.
   const youth = markdown.match(/(?:Jugendvereine|Youth clubs|Clubs juveniles|Clubes juveniles)\s*\n+([^\n]+)/i);
@@ -473,9 +528,17 @@ function showDebugRaw(text){
 function updateUsedPlayersDisplay(){
   const el = document.getElementById("usedPlayersList");
   if (!el) return;
-  el.textContent = usedPlayers.length
-    ? usedPlayers.map(p => p.displayName).join(", ")
-    : "–";
+  el.innerHTML = "";
+  if (!usedPlayers.length) {
+    el.textContent = "–";
+    return;
+  }
+  usedPlayers.forEach(p => {
+    const chip = document.createElement("span");
+    chip.className = "player-chip";
+    chip.textContent = p.displayName;
+    el.appendChild(chip);
+  });
 }
 
 function setModalFeedback(text, tone){
@@ -686,14 +749,17 @@ function commitMove(){
 
   const winner = checkWin(lastSize);
   if (winner) {
-    setResult(`🏆 Spieler ${winner} gewinnt!`, winner === "X" ? "x" : "o");
+    const winText = `🏆 Spieler ${winner} gewinnt!`;
+    setResult(winText, winner === "X" ? "x" : "o");
     lockBoard();
+    saveState(winText);
     if (navigator.vibrate) navigator.vibrate([20, 40, 20]);
     return;
   }
 
   currentPlayer = currentPlayer === "X" ? "O" : "X";
   setCurrentPlayerLabel();
+  saveState("");
 }
 
 function undoMove(){
@@ -707,6 +773,7 @@ function undoMove(){
     currentPlayer = last.player;
     setCurrentPlayerLabel();
     setUndoButtonState();
+    saveState("");
     return;
   }
 
@@ -739,6 +806,7 @@ function undoMove(){
   currentPlayer = last.player;
   setCurrentPlayerLabel();
   setUndoButtonState();
+  saveState("");
 }
 
 function skipTurn(){
@@ -750,26 +818,38 @@ function skipTurn(){
 
   currentPlayer = currentPlayer === "X" ? "O" : "X";
   setCurrentPlayerLabel();
+  saveState("");
 }
 
 
-function generateBoard(forceNewTeams = true) {
-  currentPlayer = 'X';
-  moveHistory = [];
-  usedPlayers = [];
-  gameLocked = false;
-  setUndoButtonState();
-  updateUsedPlayersDisplay();
+function generateBoard(forceNewTeams = true, restored = null) {
+  if (restored) {
+    lastSize = restored.lastSize;
+    topTeams = restored.topTeams;
+    sideTeams = restored.sideTeams;
+    boardState = restored.boardState;
+    currentPlayer = restored.currentPlayer;
+    moveHistory = restored.moveHistory || [];
+    usedPlayers = restored.usedPlayers || [];
+    gameLocked = !!restored.gameLocked;
+  } else {
+    currentPlayer = 'X';
+    moveHistory = [];
+    usedPlayers = [];
+    gameLocked = false;
 
-  const size = lastSize;
+    if (forceNewTeams) {
+      const selected = shuffleFisherYates(teams).slice(0, lastSize * 2);
+      topTeams = selected.slice(0, lastSize);
+      sideTeams = selected.slice(lastSize);
+    }
 
-  if (forceNewTeams) {
-    const selected = shuffleFisherYates(teams).slice(0, size * 2);
-    topTeams = selected.slice(0, size);
-    sideTeams = selected.slice(size);
+    boardState = Array.from({ length: lastSize }, () => Array(lastSize).fill("?"));
   }
 
-  boardState = Array.from({ length: size }, () => Array(size).fill("?"));
+  const size = lastSize;
+  setUndoButtonState();
+  updateUsedPlayersDisplay();
 
   const grid = document.getElementById("grid");
   grid.innerHTML = "";
@@ -807,9 +887,35 @@ function generateBoard(forceNewTeams = true) {
     }
   }
 
-  setResult("");
+  // Bereits gesetzte Felder wiederherstellen (Foto/Name aus moveHistory, falls vorhanden)
+  if (restored) {
+    const moveByCell = {};
+    moveHistory.forEach(mv => {
+      if (mv.type === "move") moveByCell[`${mv.r},${mv.c}`] = mv;
+    });
+    const spans = Array.from(grid.querySelectorAll(".cell .cell-content"));
+    for (let r = 0; r < size; r++) {
+      for (let c = 0; c < size; c++) {
+        const mark = boardState[r][c];
+        if (mark === "?") continue;
+        const span = spans[r * size + c];
+        const mv = moveByCell[`${r},${c}`];
+        if (span) renderCellMark(span, mark, mv ? mv.photoUrl : null, mv ? mv.playerName : null);
+      }
+    }
+  }
+
+  setResult(restored && restored.resultText ? restored.resultText : "");
   setCurrentPlayerLabel();
   setUndoButtonState();
+
+  if (restored && gameLocked) {
+    checkWin(size); // stellt die Gewinn-Hervorhebung der Linie wieder her
+  }
+
+  if (!restored) {
+    saveState(""); // frisch gestartete Runde ebenfalls sichern
+  }
 
   // Fit Board nach Render
   requestAnimationFrame(() => fitBoardToViewport(size));
@@ -972,5 +1078,18 @@ window.addEventListener("load", () => {
     }
   });
 
-  setSize(3);
+  // Gespeicherten Spielstand wiederherstellen (z. B. nach Tab-Reload auf dem Handy),
+  // sonst normal mit einer frischen 3×3-Runde starten.
+  const saved = loadState();
+  if (saved) {
+    lastSize = saved.lastSize;
+    document.querySelectorAll(".segmented__btn").forEach(b => {
+      const active = parseInt(b.dataset.size, 10) === saved.lastSize;
+      b.classList.toggle("is-active", active);
+      b.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    generateBoard(false, saved);
+  } else {
+    setSize(3);
+  }
 });

@@ -560,6 +560,17 @@ body.compact .team-logo span{ display:none; }
   line-height: 1.35;
 }
 
+.transfer-history__list li.transfer-history__match{
+  color: #1a8f43;
+  font-weight: 800;
+}
+
+.transfer-history__list li.transfer-history__empty{
+  font-weight: 600;
+  font-style: italic;
+  color: rgba(17,17,20,0.55);
+}
+
 .modal-debug-toggle{
   display:none;
   margin-top: 8px;
@@ -607,3 +618,8 @@ body.compact .team-logo span{ display:none; }
   height: 44px;
   padding: 0 14px;
 }
+
+#modalDirect{
+  border: 1px solid rgba(0,0,0,0.08);
+}
+

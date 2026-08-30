@@ -128,6 +128,7 @@ function normalizeName(str) {
    4. beide gesuchten Vereine automatisch prüfen
 */
 const TM_READER_BASE = "https://r.jina.ai/http://www.transfermarkt.de";
+const TM_SITE = "https://www.transfermarkt.de";
 
 const teamKeywords = {
   "FC Bayern München": ["bayern munchen", "bayern münchen", "bayern munich", "fc bayern"],
@@ -201,7 +202,7 @@ function extractPlayerCandidates(markdown) {
     const prev = bySlug.get(id);
     if (!prev || slug.length > prev.length) bySlug.set(id, slug);
   }
-  return [...bySlug.entries()].map(([id, slug]) => ({ id, name: slugToName(slug) }));
+  return [...bySlug.entries()].map(([id, slug]) => ({ id, slug, name: slugToName(slug) }));
 }
 
 function scorePlayerCandidate(candidate, input) {
@@ -236,7 +237,7 @@ async function searchTransfermarktPlayer(name) {
     const urls = extractTransfermarktProfileUrls(md);
     if (!urls.length) return null;
     const idMatch = urls[0].match(/spieler\/(\d+)/i);
-    return idMatch ? { id: idMatch[1], name } : null;
+    return idMatch ? { id: idMatch[1], name, slug: (urls[0].match(/transfermarkt\.(?:de|com|co\.uk)\/([^/]+)\//i)||[])[1] || "" } : null;
   }
   candidates.sort((a,b) => scorePlayerCandidate(b,name) - scorePlayerCandidate(a,name));
   return candidates[0];
@@ -244,14 +245,14 @@ async function searchTransfermarktPlayer(name) {
 
 // Statt der allgemeinen Profilseite (voller Rauschen: Spieltermine, Marktwertverlauf, Geb.-Datum)
 // wird direkt die Transfers-Unterseite geladen – dort steht die echte Wechselhistorie.
-async function fetchTransfermarktTransfers(playerId) {
+async function fetchTransfermarktTransfers(playerId, slug = "") {
   // Die /transfers-Seite kann von r.jina.ai gekürzt werden. Für die
   // "hat für Verein gespielt"-Prüfung laden wir zusätzlich die
   // Rückennummern-Historie, die Transfermarkt als Karriereübersicht führt.
   const urls = [
-    `https://www.transfermarkt.de/x/transfers/spieler/${playerId}`,
-    `https://www.transfermarkt.de/x/rueckennummern/spieler/${playerId}`,
-    `https://www.transfermarkt.de/x/profil/spieler/${playerId}`
+    `${TM_SITE}/${slug ? slug + "/" : ""}transfers/spieler/${playerId}`,
+    `${TM_SITE}/${slug ? slug + "/" : ""}rueckennummern/spieler/${playerId}`,
+    `${TM_SITE}/${slug ? slug + "/" : ""}profil/spieler/${playerId}`
   ];
   const chunks = [];
   for (const url of urls) {
@@ -274,21 +275,42 @@ function extractCareerClubs(markdown) {
   if (!markdown) return [];
   const clubs = [];
   const seen = new Set();
-  // Transfermarkt renders club links as /verein/<id>. The visible link text is
-  // much more reliable than trying to infer clubs from arbitrary page text.
-  const re = /\[([^\]\n]{2,100})\]\(https?:\/\/www\.transfermarkt\.(?:de|com|co\.uk)\/[^\s)]*\/verein\/\d+[^\s)]*\)/gi;
-  let m;
-  while ((m = re.exec(markdown))) {
-    const name = m[1].replace(/\s+/g, ' ').trim();
-    if (!name || /Transfermarkt|Startseite|Wappen|Logo|Detailsuche/i.test(name)) continue;
+  const add = (value) => {
+    if (!value) return;
+    let name = value.replace(/\[[^\]]*\]\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();
+    name = name.replace(/^[-•*]\s*/, '').replace(/\s*\|\s*$/, '').trim();
+    if (!name || name.length < 3) return;
+    if (/^(Transfermarkt|Transferdetails|Transferzeitpunkt|Saison|Wettbewerb|Liga|Liga-Art|Trainer|Manager|Marktwert|Alter|Ablöse|Restvertragslaufzeit|Datum|Deutschland|Germany|Österreich|Austria|Schweiz|Switzerland|Frankreich|France|England|Spain|Spanien|Italy|Italien|Niederlande|Netherlands)$/i.test(name)) return;
+    if (/nationalmannschaft|nationalteam|\b(?:U(?:15|16|17|18|19|20|21|23))\b/i.test(name)) return;
+    if (/^(image|logo|wappen|news|community|statistik|detailsuche)/i.test(name)) return;
     const key = normalizeName(name);
-    if (key.length < 3 || seen.has(key)) continue;
-    seen.add(key);
-    clubs.push(name);
+    if (seen.has(key)) return;
+    seen.add(key); clubs.push(name);
+  };
+
+  // 1) Current/regular club links.
+  const re = /\[([^\]\n]{2,100})\]\((https?:\/\/www\.transfermarkt\.(?:de|com|co\.uk)\/[^\s)]*\/verein\/\d+[^\s)]*)\)/gi;
+  let m;
+  while ((m = re.exec(markdown))) add(m[1]);
+
+  // 2) Transfermarkt's youth-club summary is plain text, not reliably linked.
+  const youth = markdown.match(/(?:Jugendvereine|Youth clubs|Clubs juveniles|Clubes juveniles)\s*\n+([^\n]+)/i);
+  if (youth) youth[1].split(/,\s*/).forEach(x => add(x.replace(/\s*\([^)]*\)/g, '')));
+
+  // 3) Transfer-detail rows. Reader output commonly renders the two clubs as a pipe-separated line.
+  const lines = markdown.split(/\n+/).map(x => x.trim()).filter(Boolean);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!/\|/.test(line)) continue;
+    const parts = line.split('|').map(x => x.replace(/\[|\]/g, '').trim()).filter(Boolean);
+    if (parts.length < 2 || parts.length > 4) continue;
+    const joined = parts.join(' ');
+    if (/Wettbewerb|Liga|Trainer|Manager|Marktwert|Alter|Ablöse|Restvertrags|Transferzeitpunkt|Saison/i.test(joined)) continue;
+    parts.slice(0,2).forEach(x => add(x));
   }
+
   return clubs;
 }
-
 function extractTransferHistory(markdown) {
   // Kept for backwards compatibility with the UI; now returns the clean
   // career-club list rather than noisy dates/match links.
@@ -329,7 +351,7 @@ async function tryAutoCheck(name, teamA, teamB){
     const best = await searchTransfermarktPlayer(name);
     if (!best || !best.id) return { status: "not_found" };
 
-    const transfersMd = await fetchTransfermarktTransfers(best.id);
+    const transfersMd = await fetchTransfermarktTransfers(best.id, best.slug || "");
     const diagnostics = buildDiagnosticsSummary(transfersMd, teamA, teamB);
     console.log(`[TM-Check] Spieler-ID ${best.id}\n${diagnostics}`);
 
@@ -349,21 +371,54 @@ async function tryAutoCheck(name, teamA, teamB){
   }
 }
 
-function showTransferHistory(rows){
+function showTransferHistory(rows, attempted, teamA, teamB){
   const wrap = document.getElementById("transferHistory");
   const list = document.getElementById("transferHistoryList");
   if (!wrap || !list) return;
   list.innerHTML = "";
-  if (!rows || !rows.length) {
-    wrap.classList.remove("is-visible");
+
+  // Eine sehr kurze Liste (1-2 Einträge) ist bei Spielern mit langer Karriere fast immer
+  // unvollständig (Transfermarkt lädt die volle Historie oft per JS nach, das fehlt hier).
+  // Eine irreführend kurze Liste ist schlimmer als gar keine – deshalb Schwelle statt blind zeigen.
+  const looksIncomplete = rows && rows.length > 0 && rows.length < 3;
+
+  if (rows && rows.length) {
+    // Vereine, die zu den gesuchten Feld-Teams passen, zuerst und mit Haken markieren.
+    const isMatch = (club) => {
+      if (!club) return false;
+      return (teamA && clubNameMatchesTeam(club, teamA)) || (teamB && clubNameMatchesTeam(club, teamB));
+    };
+    const sorted = [...rows].sort((a, b) => Number(isMatch(b)) - Number(isMatch(a)));
+    sorted.forEach(club => {
+      const li = document.createElement("li");
+      const match = isMatch(club);
+      li.textContent = (match ? "✓ " : "• ") + club;
+      if (match) li.classList.add("transfer-history__match");
+      list.appendChild(li);
+    });
+    if (looksIncomplete) {
+      const warn = document.createElement("li");
+      warn.className = "transfer-history__empty";
+      warn.textContent = "⚠ Vermutlich unvollständig (Transfermarkt lädt die volle Historie oft nach) – über den Link oben selbst prüfen.";
+      list.appendChild(warn);
+    }
+    wrap.classList.add("is-visible");
     return;
   }
-  rows.forEach(r => {
+
+  if (attempted) {
+    // Ehrlich sichtbar statt lautlos zu verschwinden: die Karrieredaten liefern nicht
+    // immer eine saubere Vereinsliste (z. B. wenn Transfermarkt sie per JavaScript
+    // nachlädt). Grün-Bestätigung basiert dann auf Texttreffer, nicht auf dieser Liste.
     const li = document.createElement("li");
-    li.textContent = r;
+    li.className = "transfer-history__empty";
+    li.textContent = "Keine strukturierte Vereinsliste gefunden – über den Link oben selbst nachsehen.";
     list.appendChild(li);
-  });
-  wrap.classList.add("is-visible");
+    wrap.classList.add("is-visible");
+    return;
+  }
+
+  wrap.classList.remove("is-visible");
 }
 
 let suggestDebounceTimer = null;
@@ -470,6 +525,25 @@ function closeNamePrompt(){
   pending = null;
 }
 
+function directConfirmAnswer(){
+  if (!pending) return;
+  const input = document.getElementById("playerInput");
+  const raw = input.value.trim();
+  if (!raw) {
+    setModalFeedback("Bitte einen Namen eingeben.", "error");
+    return;
+  }
+  const norm = normalizeName(raw);
+  if (usedPlayers.some(p => p.norm === norm)) {
+    setModalFeedback("Dieser Spieler wurde in dieser Runde schon genannt.", "error");
+    return;
+  }
+  pending.candidateName = raw;
+  document.getElementById("modalConfirm").disabled = false;
+  setModalFeedback(`✓ ${raw}: direkt bestätigt – ohne automatische Prüfung.`, "success");
+  showManualConfirm(false);
+}
+
 async function checkAnswer(){
   if (!pending) return;
   const currentPending = pending;
@@ -518,7 +592,7 @@ async function checkAnswer(){
     setModalFeedback(`✓ ${result.displayName}: automatisch bestätigt (laut Transfermarkt-Karriere für beide Vereine).`, "success");
     showManualConfirm(false);
     showTransfermarktLink(true, result.displayName, result.id);
-    showTransferHistory(result.transfers);
+    showTransferHistory(result.transfers, true, pending.teamA, pending.teamB);
     showDebugRaw(result.raw);
     pending.candidateName = result.displayName;
     confirmBtn.disabled = false;
@@ -526,7 +600,7 @@ async function checkAnswer(){
     setModalFeedback(`${result.displayName} gefunden, aber laut Karrierestationen nicht eindeutig für beide Vereine. Selbst prüfen und bei Einigkeit bestätigen.`, "warn");
     showManualConfirm(true);
     showTransfermarktLink(true, result.displayName, result.id);
-    showTransferHistory(result.transfers);
+    showTransferHistory(result.transfers, true, pending.teamA, pending.teamB);
     showDebugRaw(result.raw);
     pending.candidateName = result.displayName;
     confirmBtn.disabled = true;
@@ -804,6 +878,7 @@ window.addEventListener("load", () => {
 
   // --- Spieler-Abfrage-Modal ---
   document.getElementById("modalCheck").addEventListener("click", checkAnswer);
+  document.getElementById("modalDirect").addEventListener("click", directConfirmAnswer);
 
   document.getElementById("debugToggle").addEventListener("click", () => {
     const box = document.getElementById("debugRaw");

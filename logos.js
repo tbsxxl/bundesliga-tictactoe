@@ -1,7 +1,7 @@
 const teamData = {
   "FC Bayern München": { name: "FC Bayern München", logo: "https://upload.wikimedia.org/wikipedia/commons/8/8d/FC_Bayern_M%C3%BCnchen_logo_%282024%29.svg", color: "#dc052d" },
   "Borussia Dortmund": { name: "Borussia Dortmund", logo: "https://upload.wikimedia.org/wikipedia/commons/6/67/Borussia_Dortmund_logo.svg", color: "#fce200" },
-  "RB Leipzig": { name: "RB Leipzig", logo: "https://upload.wikimedia.org/wikipedia/commons/d/d6/VEREINFACHTES_LOGO_-_RB_Leipzig.svg", color: "#c8102e" },
+  "RB Leipzig": { name: "RB Leipzig", logo: "https://commons.wikimedia.org/wiki/Special:FilePath/RB%20Leipzig%20logo%202014.svg", color: "#c8102e" },
   "Bayer Leverkusen": { name: "Bayer Leverkusen", logo: "https://upload.wikimedia.org/wikipedia/de/f/f7/Bayer_Leverkusen_Logo.svg", color: "#e32219" },
   "VfB Stuttgart": { name: "VfB Stuttgart", logo: "https://upload.wikimedia.org/wikipedia/commons/e/eb/VfB_Stuttgart_1893_Logo.svg", color: "#e60000" },
   "Eintracht Frankfurt": { name: "Eintracht Frankfurt", logo: "https://upload.wikimedia.org/wikipedia/de/3/32/Logo_Eintracht_Frankfurt_1998.svg", color: "#e40c2b" },

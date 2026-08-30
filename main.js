@@ -346,6 +346,17 @@ function buildDiagnosticsSummary(markdown, teamA, teamB){
 }
 
 // Rückgabe: { status: 'valid' | 'checked_no_match' | 'not_found' | 'error', id?, displayName?, matchedTeams?, transfers? }
+// Portraitfotos stehen als ganz normale Bild-URL im Markdown der Profilseite
+// (z. B. https://img.a.transfermarkt.technology/portrait/big/{id}-{hash}.jpg?lm=...).
+// Anzeigen per <img src> braucht kein CORS (anders als fetch()), daher ist das
+// deutlich zuverlässiger als der Rest der Datenextraktion.
+function extractPortraitUrl(markdown, playerId){
+  if (!markdown) return null;
+  const re = new RegExp(`https:\\/\\/img\\.a\\.transfermarkt\\.technology\\/portrait\\/(?:big|header)\\/${playerId}-\\d+\\.jpg[^\\s)\\]"']*`, "i");
+  const m = markdown.match(re);
+  return m ? m[0] : null;
+}
+
 async function tryAutoCheck(name, teamA, teamB){
   try {
     const best = await searchTransfermarktPlayer(name);
@@ -359,12 +370,13 @@ async function tryAutoCheck(name, teamA, teamB){
     const careerText = careerClubs.join(" | ");
     const hasA = textContainsTeam(careerText, teamA) || textContainsTeam(transfersMd, teamA);
     const hasB = textContainsTeam(careerText, teamB) || textContainsTeam(transfersMd, teamB);
+    const photoUrl = extractPortraitUrl(transfersMd, best.id);
 
     // Show all identifiable clubs in the player's Transfermarkt career.
     if (hasA && hasB) {
-      return { status: "valid", id: best.id, displayName: best.name || name, matchedTeams: [teamA, teamB], clubs: careerClubs, transfers: careerClubs, raw: diagnostics };
+      return { status: "valid", id: best.id, displayName: best.name || name, matchedTeams: [teamA, teamB], clubs: careerClubs, transfers: careerClubs, raw: diagnostics, photoUrl };
     }
-    return { status: "checked_no_match", id: best.id, displayName: best.name || name, hasA, hasB, clubs: careerClubs, transfers: careerClubs, raw: diagnostics };
+    return { status: "checked_no_match", id: best.id, displayName: best.name || name, hasA, hasB, clubs: careerClubs, transfers: careerClubs, raw: diagnostics, photoUrl };
   } catch (err) {
     console.warn("Transfermarkt-Autoprüfung fehlgeschlagen:", err);
     return { status: "error" };
@@ -497,7 +509,7 @@ function showManualConfirm(show){
 }
 
 function openNamePrompt(r, c, span, teamA, teamB){
-  pending = { r, c, span, teamA, teamB, candidateName: null };
+  pending = { r, c, span, teamA, teamB, candidateName: null, candidatePhoto: null };
 
   document.getElementById("modalTeamA").textContent = teamA;
   document.getElementById("modalTeamB").textContent = teamB;
@@ -539,6 +551,7 @@ function directConfirmAnswer(){
     return;
   }
   pending.candidateName = raw;
+  pending.candidatePhoto = null;
   document.getElementById("modalConfirm").disabled = false;
   setModalFeedback(`✓ ${raw}: direkt bestätigt – ohne automatische Prüfung.`, "success");
   showManualConfirm(false);
@@ -595,6 +608,7 @@ async function checkAnswer(){
     showTransferHistory(result.transfers, true, pending.teamA, pending.teamB);
     showDebugRaw(result.raw);
     pending.candidateName = result.displayName;
+    pending.candidatePhoto = result.photoUrl || null;
     confirmBtn.disabled = false;
   } else if (result.status === "checked_no_match") {
     setModalFeedback(`${result.displayName} gefunden, aber laut Karrierestationen nicht eindeutig für beide Vereine. Selbst prüfen und bei Einigkeit bestätigen.`, "warn");
@@ -603,6 +617,7 @@ async function checkAnswer(){
     showTransferHistory(result.transfers, true, pending.teamA, pending.teamB);
     showDebugRaw(result.raw);
     pending.candidateName = result.displayName;
+    pending.candidatePhoto = result.photoUrl || null;
     confirmBtn.disabled = true;
   } else {
     // not_found oder error (Timeout, CORS, API down)
@@ -613,7 +628,44 @@ async function checkAnswer(){
     showTransferHistory([]);
     showDebugRaw(null);
     pending.candidateName = raw;
+    pending.candidatePhoto = null;
     confirmBtn.disabled = true;
+  }
+}
+
+function renderCellMark(span, player, photoUrl, playerName){
+  span.textContent = "";
+  span.classList.add(`player-${player.toLowerCase()}`);
+  span.classList.remove("has-photo");
+
+  if (photoUrl) {
+    span.classList.add("has-photo");
+    const img = document.createElement("img");
+    img.src = photoUrl;
+    img.alt = "";
+    img.className = "cell-photo";
+    // Falls das Bild nicht lädt (z. B. tote URL): sauber auf X/O zurückfallen.
+    img.addEventListener("error", () => {
+      span.classList.remove("has-photo");
+      span.innerHTML = "";
+      span.textContent = player;
+    });
+
+    const badge = document.createElement("span");
+    badge.className = "cell-photo__badge";
+    badge.textContent = player;
+
+    span.appendChild(img);
+    span.appendChild(badge);
+
+    if (playerName) {
+      const nameTag = document.createElement("span");
+      nameTag.className = "cell-photo__name";
+      nameTag.textContent = playerName;
+      span.appendChild(nameTag);
+    }
+  } else {
+    span.textContent = player;
   }
 }
 
@@ -623,14 +675,13 @@ function commitMove(){
   const confirmBtn = document.getElementById("modalConfirm");
   if (confirmBtn.disabled) return;
 
-  const { r, c, span, candidateName } = pending;
+  const { r, c, span, candidateName, candidatePhoto } = pending;
 
   boardState[r][c] = currentPlayer;
   usedPlayers.push({ norm: normalizeName(candidateName), displayName: candidateName });
-  moveHistory.push({ type: "move", r, c, player: currentPlayer, playerName: candidateName });
+  moveHistory.push({ type: "move", r, c, player: currentPlayer, playerName: candidateName, photoUrl: candidatePhoto || null });
 
-  span.textContent = currentPlayer;
-  span.classList.add(`player-${currentPlayer.toLowerCase()}`);
+  renderCellMark(span, currentPlayer, candidatePhoto, candidateName);
 
   updateUsedPlayersDisplay();
   setUndoButtonState();
@@ -676,8 +727,9 @@ function undoMove(){
   if (cell) {
     const span = cell.querySelector(".cell-content");
     if (span) {
+      span.innerHTML = "";
       span.textContent = "?";
-      span.classList.remove("player-x","player-o");
+      span.classList.remove("player-x","player-o","has-photo");
     }
   }
 

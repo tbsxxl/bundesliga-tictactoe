@@ -344,6 +344,60 @@ body.compact .team-logo span{ display:none; }
 .player-x{ color: var(--accent); }
 .player-o{ color: var(--accent2); }
 
+.cell-content.has-photo{
+  width: 100%;
+  height: 100%;
+  border-radius: calc(var(--radius-lg) - 2px);
+  overflow: hidden;
+  position: relative;
+}
+
+.cell-photo{
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 20%;
+  display: block;
+}
+
+.cell-photo__badge{
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size: 15px;
+  font-weight: 950;
+  background: rgba(255,255,255,0.95);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.35), 0 0 0 2px rgba(255,255,255,0.6);
+}
+
+.cell-content.player-x .cell-photo__badge{ color: var(--accent); box-shadow: 0 3px 8px rgba(0,0,0,0.35), 0 0 0 2px var(--accent); }
+.cell-content.player-o .cell-photo__badge{ color: var(--accent2); box-shadow: 0 3px 8px rgba(0,0,0,0.35), 0 0 0 2px var(--accent2); }
+
+.cell-photo__name{
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 14px 8px 6px;
+  background: linear-gradient(to top, rgba(0,0,0,0.72), rgba(0,0,0,0));
+  color: #fff;
+  font-size: clamp(9px, 2vw, 11px);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  text-align: center;
+  line-height: 1.15;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .correct-x{ animation: winPulseX 1.6s ease-in-out infinite; }
 .correct-o{ animation: winPulseO 1.6s ease-in-out infinite; }
 

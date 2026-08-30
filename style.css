@@ -350,6 +350,11 @@ body.compact .team-logo span{ display:none; }
   border-radius: calc(var(--radius-lg) - 2px);
   overflow: hidden;
   position: relative;
+  border: 4px solid var(--accent);
+}
+
+.cell-content.has-photo.player-o{
+  border-color: var(--accent2);
 }
 
 .cell-photo{
@@ -359,25 +364,6 @@ body.compact .team-logo span{ display:none; }
   object-position: 50% 20%;
   display: block;
 }
-
-.cell-photo__badge{
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size: 15px;
-  font-weight: 950;
-  background: rgba(255,255,255,0.95);
-  box-shadow: 0 3px 8px rgba(0,0,0,0.35), 0 0 0 2px rgba(255,255,255,0.6);
-}
-
-.cell-content.player-x .cell-photo__badge{ color: var(--accent); box-shadow: 0 3px 8px rgba(0,0,0,0.35), 0 0 0 2px var(--accent); }
-.cell-content.player-o .cell-photo__badge{ color: var(--accent2); box-shadow: 0 3px 8px rgba(0,0,0,0.35), 0 0 0 2px var(--accent2); }
 
 .cell-photo__name{
   position: absolute;

@@ -651,12 +651,7 @@ function renderCellMark(span, player, photoUrl, playerName){
       span.textContent = player;
     });
 
-    const badge = document.createElement("span");
-    badge.className = "cell-photo__badge";
-    badge.textContent = player;
-
     span.appendChild(img);
-    span.appendChild(badge);
 
     if (playerName) {
       const nameTag = document.createElement("span");

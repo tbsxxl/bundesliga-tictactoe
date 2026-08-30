@@ -17,6 +17,6 @@ const teamData = {
 
   // Neu für die Saison 2026/27 (Aufsteiger aus der 2. Bundesliga 2025/26)
   "FC Schalke 04": { name: "FC Schalke 04", logo: "https://commons.wikimedia.org/wiki/Special:FilePath/FC%20Schalke%2004%20Logo.svg", color: "#004d9d" },
-  "SV 07 Elversberg": { name: "SV 07 Elversberg", logo: "https://commons.wikimedia.org/wiki/Special:FilePath/SV%2007%20Elversberg%20logo.svg", color: "#004b8d" },
+  "SV 07 Elversberg": { name: "SV 07 Elversberg", logo: "https://commons.wikimedia.org/wiki/Special:FilePath/SV%2007%20Elversberg.svg", color: "#004b8d" },
   "SC Paderborn 07": { name: "SC Paderborn 07", logo: "https://commons.wikimedia.org/wiki/Special:FilePath/SC%20Paderborn%2007%20logo.svg", color: "#00549f" },
 };

@@ -15,6 +15,9 @@ let lastSize = 3;
 let moveHistory = []; // Stack: { type:'move', r, c, player, playerName } | { type:'skip', player }
 let gameLocked = false;
 let usedPlayers = []; // [{ norm, displayName }]
+let roundStartedAt = Date.now();
+let elapsedBeforePause = 0;
+let timerHandle = null;
 let pending = null;   // { r, c, span, teamA, teamB, candidateName }
 
 function setUndoButtonState() {
@@ -48,6 +51,7 @@ function saveState(resultText){
       lastSize, topTeams, sideTeams, boardState,
       currentPlayer, moveHistory, usedPlayers, gameLocked,
       resultText: resultText || "",
+      roundStartedAt, elapsedBeforePause,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (err) {
@@ -65,6 +69,26 @@ function loadState(){
   } catch (err) {
     return null;
   }
+}
+
+function getElapsedSeconds(){
+  return Math.max(0, Math.floor((elapsedBeforePause + (gameLocked ? 0 : (Date.now() - roundStartedAt))) / 1000));
+}
+function formatTime(sec){
+  const m = Math.floor(sec / 60); const s = sec % 60;
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+function updateGameStats(){
+  const moves = moveHistory.filter(m => m.type === 'move').length;
+  const movesEl = document.getElementById('movesStat');
+  const timeEl = document.getElementById('timeStat');
+  if (movesEl) movesEl.textContent = `${moves} ${moves === 1 ? 'Zug' : 'Züge'}`;
+  if (timeEl) timeEl.textContent = formatTime(getElapsedSeconds());
+}
+function startTimer(){
+  clearInterval(timerHandle);
+  timerHandle = setInterval(updateGameStats, 1000);
+  updateGameStats();
 }
 
 function clearSavedState(){
@@ -121,6 +145,7 @@ function fitBoardToViewport(size){
 }
 
 function lockBoard(){
+  if (!gameLocked) elapsedBeforePause += Date.now() - roundStartedAt;
   gameLocked = true;
   document.querySelectorAll(".cell").forEach(cell => {
     cell.style.pointerEvents = "none";
@@ -130,6 +155,7 @@ function lockBoard(){
 
 function unlockBoard(){
   gameLocked = false;
+  roundStartedAt = Date.now();
   document.querySelectorAll(".cell").forEach(cell => {
     cell.style.pointerEvents = "auto";
     cell.style.opacity = "1";
@@ -227,21 +253,53 @@ function slugToName(slug) {
     .join(' ');
 }
 
+// Vereins-Slugs enthalten häufig gängige Kurzformen (sc, fc, tsg, ...), die als eigenes
+// Wort groß geschrieben gehören ("SC Freiburg" statt "Sc Freiburg"), sowie deutsche
+// Umlaute, die im URL-Slug ausgeschrieben sind (oe/ue/ae -> ö/ü/ä).
+const CLUB_SLUG_UPPER = new Set(["fc","sc","sv","tsg","rb","vfb","vfl","fsv","hsv","dsc","bsc","asv","sg","spvgg"]);
+function slugToClubName(slug) {
+  return slug
+    .split('-')
+    .filter(Boolean)
+    .map(w => {
+      if (CLUB_SLUG_UPPER.has(w.toLowerCase())) return w.toUpperCase();
+      if (/^\d+$/.test(w)) return w;
+      return w.charAt(0).toUpperCase() + w.slice(1);
+    })
+    .join(' ');
+}
+
 // Der zuverlässigste Name steckt im URL-Slug selbst (.../keven-schlotterbeck/.../spieler/413843),
 // nicht im umgebenden Fließtext. Pro Spieler-ID wird der längste (aussagekräftigste) Slug behalten;
 // Platzhalter wie "-" oder "x" werden ignoriert.
-function extractPlayerCandidates(markdown) {
-  const bySlug = new Map();
-  const re = /transfermarkt\.(?:de|com|co\.uk)\/([a-z0-9\-]+)\/[a-z\-]+\/spieler\/(\d+)/gi;
+function extractPlayerCandidates(markdown, fallbackName = "") {
+  const byId = new Map();
+  const add = (id, slug, name) => {
+    if (!id) return;
+    slug = (slug || "").replace(/^x$/i, "");
+    name = (name || "").trim() || (slug ? slugToName(slug) : fallbackName);
+    const prev = byId.get(id);
+    if (!prev || (slug && !prev.slug) || (slug && slug.length > (prev.slug || "").length)) {
+      byId.set(id, { id, slug, name });
+    }
+  };
+
+  // Normaler Spielerlink: /spielername/profil/spieler/123
+  const re = /transfermarkt\.(?:de|com|co\.uk)\/([a-z0-9\-]+)\/profil\/spieler\/(\d+)/gi;
   let m;
-  while ((m = re.exec(markdown || ""))) {
-    const slug = m[1];
-    const id = m[2];
-    if (!slug || slug.length < 3 || slug === "x") continue;
-    const prev = bySlug.get(id);
-    if (!prev || slug.length > prev.length) bySlug.set(id, slug);
-  }
-  return [...bySlug.entries()].map(([id, slug]) => ({ id, slug, name: slugToName(slug) }));
+  while ((m = re.exec(markdown || ""))) add(m[2], m[1], slugToName(m[1]));
+
+  // Transfermarkt/Jina liefert in der Schnellsuche sehr häufig den kanonischen
+  // Kurzlink /x/profil/spieler/123. Der alte Parser hat genau diese Links übersehen,
+  // wodurch bekannte Spieler wie Leon Goretzka als "kein Treffer" erschienen sind.
+  const xRe = /transfermarkt\.(?:de|com|co\.uk)\/x\/profil\/spieler\/(\d+)/gi;
+  while ((m = xRe.exec(markdown || ""))) add(m[1], "", fallbackName);
+
+  // Fallback für seltene Reader-Varianten: /spieler/123 ohne Slug.
+  const idRe = /transfermarkt\.(?:de|com|co\.uk)\/(?:x\/)?profil\/spieler\/(\d+)/gi;
+  while ((m = idRe.exec(markdown || ""))) add(m[1], "", fallbackName);
+
+  return [...byId.values()];
 }
 
 function scorePlayerCandidate(candidate, input) {
@@ -270,7 +328,7 @@ async function searchTransfermarktPlayer(name) {
   const res = await fetchWithTimeout(searchUrl, 9000);
   if (!res.ok) throw new Error(`Transfermarkt-Suche HTTP ${res.status}`);
   const md = await res.text();
-  const candidates = extractPlayerCandidates(md);
+  const candidates = extractPlayerCandidates(md, name);
   if (!candidates.length) {
     // Fallback: search page can sometimes be returned with links encoded differently.
     const urls = extractTransfermarktProfileUrls(md);
@@ -317,53 +375,78 @@ function extractCareerClubs(markdown) {
   if (!markdown) return [];
   const clubs = [];
   const seen = new Set();
-  const baseNamesSeen = new Set();
   const add = (value) => {
     if (!value) return;
     let name = value.replace(/\[[^\]]*\]\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();
     name = name.replace(/^[-•*]\s*/, '').replace(/\s*\|\s*$/, '').trim();
     if (!name || name.length < 3) return;
-    if (/^(Transfermarkt|Transferdetails|Transferzeitpunkt|Saison|Wettbewerb|Liga|Liga-Art|Trainer|Manager|Marktwert|Alter|Ablöse|Restvertragslaufzeit|Datum|Deutschland|Germany|Österreich|Austria|Schweiz|Switzerland|Frankreich|France|England|Spain|Spanien|Italy|Italien|Niederlande|Netherlands)$/i.test(name)) return;
+    // Niemals Saison-/Navigations-/Nationalmannschaftsreste als Verein übernehmen.
+    if (/^(Transfermarkt|Transferdetails|Transferzeitpunkt|Saison|Wettbewerb|Liga|Liga-Art|Trainer|Manager|Marktwert|Alter|Ablöse|Restvertragslaufzeit|Datum)$/i.test(name)) return;
     if (/nationalmannschaft|nationalteam|\b(?:U(?:15|16|17|18|19|20|21|23))\b/i.test(name)) return;
+    if (/^(Deutschland|Germany|Österreich|Austria|Schweiz|Switzerland|Frankreich|France|England|Spain|Spanien|Italy|Italien|Niederlande|Netherlands)(?:\s|$)/i.test(name)) return;
     if (/^(image|logo|wappen|news|community|statistik|detailsuche)/i.test(name)) return;
-    // Saison-Label wie "26/27" oder "2025/26" ist kein Verein (Reste von Saison-Auswahl-Links).
     if (/^\d{2,4}\s*\/\s*\d{2,4}$/.test(name)) return;
     const key = normalizeName(name);
     if (seen.has(key)) return;
-    // Reserve-/Zweitmannschaften (" II", " 2") mit der Hauptmannschaft zusammenfassen,
-    // wenn diese ohnehin schon in der Liste steht.
-    const baseKey = normalizeName(name.replace(/\s+(ii|2)$/i, ''));
-    if (baseKey !== key && baseNamesSeen.has(baseKey)) return;
-    seen.add(key);
-    baseNamesSeen.add(baseKey === key ? key : baseKey);
-    clubs.push(name);
+    seen.add(key); clubs.push(name);
   };
 
-  // 1) Current/regular club links. Saison-Auswahl-Links (.../saison_id/2015) werden
-  //    übersprungen – deren Linktext ist ein Saisonlabel ("15/16"), kein Vereinsname.
-  const re = /\[([^\]\n]{2,100})\]\((https?:\/\/www\.transfermarkt\.(?:de|com|co\.uk)\/[^\s)]*\/verein\/\d+[^\s)]*)\)/gi;
-  let m;
-  while ((m = re.exec(markdown))) {
-    if (/saison_id/i.test(m[2])) continue;
-    add(m[1]);
+  // Wichtig: Vereinslinks werden NUR aus den Transfer-/Rückennummern-Quellen gelesen.
+  // Profilseiten enthalten viele Navigations-, Gegner- und Empfehlungslinks und führten
+  // früher zu falschen Treffern (z.B. Nico Schlotterbeck -> Bayern/HSV).
+  const sections = markdown.split(/===== QUELLE:\s*/i);
+  for (const section of sections) {
+    const isTransferSource = /\/transfers\/spieler\/\d+/i.test(section) || /\/rueckennummern\/spieler\/\d+/i.test(section);
+    if (!isTransferSource) continue;
+    const re = /\[([^\]\n]{2,100})\]\((https?:\/\/www\.transfermarkt\.(?:de|com|co\.uk)\/[^\s)]*\/verein\/\d+[^\s)]*)\)/gi;
+    let m;
+    while ((m = re.exec(section))) {
+      if (/saison_id/i.test(m[2])) continue;
+      add(m[1]);
+    }
+    // Vereine werden auf der Transfers-/Rückennummern-Seite sehr häufig NUR über das
+    // Wappen-Bild verlinkt: [![SC Freiburg](bild-url)](.../verein/60). Dann ist der
+    // sichtbare Linktext leer oder nur "![...]" und obige Regex liefert nichts – genau
+    // das führte bei Spielern wie Nico Schlotterbeck zu "Keine strukturierte Vereinsliste
+    // gefunden". Der Vereinsname steckt aber zuverlässig im URL-Slug selbst
+    // (.../sc-freiburg/startseite/verein/60), unabhängig vom Linktext-Format.
+    // Transfermarkt/Jina kann Vereinslinks sowohl absolut als auch relativ liefern.
+    // Die alte Regex akzeptierte nur absolute URLs und verlor dadurch komplette
+    // Vereinsstationen (u. a. Nuri Sahin -> Werder Bremen). Wir akzeptieren beide
+    // Varianten und lesen den ersten URL-Slug vor /verein/<id> aus.
+    const clubLinkRe = /(?:https?:\/\/www\.transfermarkt\.(?:de|com|co\.uk))?\/([a-z0-9\-]+)\/[a-z0-9\-]*\/verein\/\d+[^\s)"']*/gi;
+    while ((m = clubLinkRe.exec(section))) {
+      if (/saison_id/i.test(m[0])) continue;
+      if (/^(spieler|profil|transfers|rueckennummern|x)$/i.test(m[1])) continue;
+      add(slugToClubName(m[1]));
+    }
+
+    // Fallback: Bei manchen Reader-Ausgaben steht der Vereinsname als Markdown-Link
+    // mit einem relativen href, während der sichtbare Text den exakten Namen enthält.
+    const relativeClubTextRe = /\[([^\]\n]{2,100})\]\((\/[^)\n]*\/verein\/\d+[^)\n]*)\)/gi;
+    while ((m = relativeClubTextRe.exec(section))) {
+      if (/saison_id/i.test(m[2])) continue;
+      const label = m[1].replace(/^!\[[^\]]*\]$/, '').trim();
+      if (label && !/^(image|logo|wappen)$/i.test(label)) add(label);
+    }
+    // Einige Reader-Versionen liefern Transferzeilen ohne Markdown-Link, z.B. "Club A | Club B".
+    for (const line of section.split(/\n+/)) {
+      const clean = line.replace(/\*\*/g,'').trim();
+      if (!clean.includes('|')) continue;
+      const parts = clean.split('|').map(x => x.replace(/\[[^\]]+\]\([^)]*\)/g,'').trim()).filter(Boolean);
+      if (parts.length >= 2 && parts.length <= 4) {
+        const joined = parts.join(' ');
+        if (!/Wettbewerb|Liga|Trainer|Manager|Marktwert|Alter|Ablöse|Restvertrags|Transferzeitpunkt|Saison|Datum/i.test(joined)) {
+          parts.slice(0,2).forEach(add);
+        }
+      }
+    }
   }
 
-  // 2) Transfermarkt's youth-club summary is plain text, not reliably linked.
+  // Jugendvereine sind auf dem Profil häufig als plain text vorhanden. Sie werden
+  // bewusst nur aus dem expliziten Jugendvereine-Block übernommen.
   const youth = markdown.match(/(?:Jugendvereine|Youth clubs|Clubs juveniles|Clubes juveniles)\s*\n+([^\n]+)/i);
   if (youth) youth[1].split(/,\s*/).forEach(x => add(x.replace(/\s*\([^)]*\)/g, '')));
-
-  // 3) Transfer-detail rows. Reader output commonly renders the two clubs as a pipe-separated line.
-  const lines = markdown.split(/\n+/).map(x => x.trim()).filter(Boolean);
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (!/\|/.test(line)) continue;
-    const parts = line.split('|').map(x => x.replace(/\[|\]/g, '').trim()).filter(Boolean);
-    if (parts.length < 2 || parts.length > 4) continue;
-    const joined = parts.join(' ');
-    if (/Wettbewerb|Liga|Trainer|Manager|Marktwert|Alter|Ablöse|Restvertrags|Transferzeitpunkt|Saison/i.test(joined)) continue;
-    parts.slice(0,2).forEach(x => add(x));
-  }
-
   return clubs;
 }
 function extractTransferHistory(markdown) {
@@ -412,9 +495,38 @@ function extractPortraitUrl(markdown, playerId){
   return m ? m[0] : null;
 }
 
+function renderMatchSummary(result, teamA, teamB){
+  const el = document.getElementById("matchSummary");
+  if (!el) return;
+  el.innerHTML = "";
+  if (!result || !result.id) return;
+  const title = document.createElement("div");
+  title.className = "match-summary__title";
+  title.textContent = "Prüfung";
+  const row = document.createElement("div");
+  row.className = "match-summary__row";
+  [teamA, teamB].forEach(team => {
+    const item = document.createElement("span");
+    item.className = "match-summary__team";
+    const ok = team === teamA ? result.hasA : result.hasB;
+    item.classList.add(ok ? "is-match" : "is-miss");
+    item.textContent = `${ok ? "✓" : "×"} ${team}`;
+    row.appendChild(item);
+  });
+  el.append(title, row);
+}
+
 async function tryAutoCheck(name, teamA, teamB){
   try {
-    const best = await searchTransfermarktPlayer(name);
+    // Wenn der Nutzer einen Autocomplete-Treffer ausgewählt hat, kennen wir ID und
+    // Namen bereits. Dadurch entfällt eine zweite Schnellsuche und die Prüfung startet
+    // sofort mit der eigentlichen Karriereabfrage.
+    let best = null;
+    if (pending && pending.candidateId && normalizeName(pending.candidateName || "") === normalizeName(name)) {
+      best = { id: pending.candidateId, slug: pending.candidateSlug || "", name: pending.candidateName || name };
+    } else {
+      best = await searchTransfermarktPlayer(name);
+    }
     if (!best || !best.id) return { status: "not_found" };
 
     const transfersMd = await fetchTransfermarktTransfers(best.id, best.slug || "");
@@ -423,13 +535,17 @@ async function tryAutoCheck(name, teamA, teamB){
 
     const careerClubs = extractCareerClubs(transfersMd);
     const careerText = careerClubs.join(" | ");
-    const hasA = textContainsTeam(careerText, teamA) || textContainsTeam(transfersMd, teamA);
-    const hasB = textContainsTeam(careerText, teamB) || textContainsTeam(transfersMd, teamB);
+    // Nur die strukturiert extrahierte Vereinsliste zählt als Beleg – ein Volltext-Fallback
+    // über die ganze Seite (frühere Version) führte zu falschen Bestätigungen, weil z. B.
+    // Spieltermine des aktuellen Vereins ("nächstes Spiel gegen Bayern München") den
+    // gegnerischen Vereinsnamen enthalten, ohne dass der Spieler dort je gespielt hat.
+    const hasA = textContainsTeam(careerText, teamA);
+    const hasB = textContainsTeam(careerText, teamB);
     const photoUrl = extractPortraitUrl(transfersMd, best.id);
 
     // Show all identifiable clubs in the player's Transfermarkt career.
     if (hasA && hasB) {
-      return { status: "valid", id: best.id, displayName: best.name || name, matchedTeams: [teamA, teamB], clubs: careerClubs, transfers: careerClubs, raw: diagnostics, photoUrl };
+      return { status: "valid", id: best.id, displayName: best.name || name, hasA: true, hasB: true, matchedTeams: [teamA, teamB], clubs: careerClubs, transfers: careerClubs, raw: diagnostics, photoUrl };
     }
     return { status: "checked_no_match", id: best.id, displayName: best.name || name, hasA, hasB, clubs: careerClubs, transfers: careerClubs, raw: diagnostics, photoUrl };
   } catch (err) {
@@ -489,24 +605,73 @@ function showTransferHistory(rows, attempted, teamA, teamB){
 }
 
 let suggestDebounceTimer = null;
+let suggestionCandidates = [];
+let activeSuggestionIndex = -1;
 async function fetchNameSuggestions(query){
+  const list = document.getElementById("playerSuggestionList");
+  if (!list) return;
+  if (query.length < 2) { list.innerHTML = ""; list.classList.remove("is-visible"); suggestionCandidates = []; return; }
   try {
     const searchUrl = `${TM_READER_BASE}/schnellsuche/ergebnis/schnellsuche?query=${encodeURIComponent(query)}`;
     const res = await fetchWithTimeout(searchUrl, 8000);
     if (!res.ok) return;
     const md = await res.text();
-    const candidates = extractPlayerCandidates(md).slice(0, 8);
-    const datalist = document.getElementById("playerSuggestions");
-    if (!datalist) return;
-    datalist.innerHTML = "";
-    candidates.forEach(c => {
-      const opt = document.createElement("option");
-      opt.value = c.name;
-      datalist.appendChild(opt);
+    suggestionCandidates = extractPlayerCandidates(md, query)
+      .filter(c => !usedPlayers.some(p => p.norm === normalizeName(c.name)))
+      .sort((a,b) => scorePlayerCandidate(b, query) - scorePlayerCandidate(a, query))
+      .slice(0, 7);
+    activeSuggestionIndex = -1;
+    list.innerHTML = "";
+    suggestionCandidates.forEach((c, i) => {
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "player-suggestion";
+      row.setAttribute("role", "option");
+      row.dataset.index = String(i);
+      const title = document.createElement("strong");
+      title.textContent = c.name;
+      const meta = document.createElement("span");
+      meta.textContent = "Transfermarkt-Spieler";
+      row.append(title, meta);
+      row.addEventListener("click", () => selectPlayerSuggestion(i));
+      list.appendChild(row);
     });
+    list.classList.toggle("is-visible", suggestionCandidates.length > 0);
   } catch (err) {
-    // Vorschläge sind reiner Komfort – ein Fehlschlag blockiert nie die Eingabe
+    // Komfortfunktion – ein Fehlschlag blockiert nie die manuelle Eingabe.
   }
+}
+
+let autoCheckToken = 0;
+async function selectPlayerSuggestion(index){
+  const c = suggestionCandidates[index];
+  if (!c) return;
+  const input = document.getElementById("playerInput");
+  input.value = c.name;
+  pending = pending || {};
+  pending.candidateName = c.name;
+  pending.candidateId = c.id;
+  pending.candidateSlug = c.slug;
+  const list = document.getElementById("playerSuggestionList");
+  if (list) list.classList.remove("is-visible");
+  // Automatische Prüfung direkt nach Auswahl – der Button "Prüfen" bleibt als erneuter Check.
+  const token = ++autoCheckToken;
+  setModalFeedback(`✓ ${c.name} ausgewählt – prüfe Vereine …`, "warn");
+  await checkAnswer();
+  if (token !== autoCheckToken) return;
+}
+
+function renderSuggestionActive(){
+  const list = document.getElementById("playerSuggestionList");
+  if (!list) return;
+  [...list.children].forEach((el, i) => el.classList.toggle("is-active", i === activeSuggestionIndex));
+}
+
+function clearSuggestions(){
+  const list = document.getElementById("playerSuggestionList");
+  if (list) { list.innerHTML = ""; list.classList.remove("is-visible"); }
+  suggestionCandidates = [];
+  activeSuggestionIndex = -1;
 }
 
 function showDebugRaw(text){
@@ -584,6 +749,9 @@ function openNamePrompt(r, c, span, teamA, teamB){
   showTransfermarktLink(false);
   showTransferHistory([]);
   showDebugRaw(null);
+  clearSuggestions();
+  const summary = document.getElementById("matchSummary");
+  if (summary) summary.innerHTML = "";
   document.getElementById("modalConfirm").disabled = true;
 
   const modal = document.getElementById("nameModal");
@@ -615,9 +783,10 @@ function directConfirmAnswer(){
   }
   pending.candidateName = raw;
   pending.candidatePhoto = null;
-  document.getElementById("modalConfirm").disabled = false;
-  setModalFeedback(`✓ ${raw}: direkt bestätigt – ohne automatische Prüfung.`, "success");
+  setModalFeedback(`✓ ${raw}: direkt bestätigt.`, "success");
   showManualConfirm(false);
+  // Direkt bestätigen ist bewusst ein Ein-Klick-Weg: sofort ins Feld übernehmen.
+  commitMove();
 }
 
 async function checkAnswer(){
@@ -634,6 +803,7 @@ async function checkAnswer(){
     showManualConfirm(false);
     showTransfermarktLink(false);
     showTransferHistory([]);
+    renderMatchSummary(null);
     confirmBtn.disabled = true;
     pending.candidateName = null;
     return;
@@ -645,6 +815,7 @@ async function checkAnswer(){
     showManualConfirm(false);
     showTransfermarktLink(false);
     showTransferHistory([]);
+    renderMatchSummary(null);
     confirmBtn.disabled = true;
     pending.candidateName = null;
     return;
@@ -669,6 +840,7 @@ async function checkAnswer(){
     showManualConfirm(false);
     showTransfermarktLink(true, result.displayName, result.id);
     showTransferHistory(result.transfers, true, pending.teamA, pending.teamB);
+    renderMatchSummary(result, pending.teamA, pending.teamB);
     showDebugRaw(result.raw);
     pending.candidateName = result.displayName;
     pending.candidatePhoto = result.photoUrl || null;
@@ -678,6 +850,7 @@ async function checkAnswer(){
     showManualConfirm(true);
     showTransfermarktLink(true, result.displayName, result.id);
     showTransferHistory(result.transfers, true, pending.teamA, pending.teamB);
+    renderMatchSummary(result, pending.teamA, pending.teamB);
     showDebugRaw(result.raw);
     pending.candidateName = result.displayName;
     pending.candidatePhoto = result.photoUrl || null;
@@ -746,6 +919,7 @@ function commitMove(){
   closeNamePrompt();
 
   if (navigator.vibrate) navigator.vibrate(12);
+  updateGameStats();
 
   const winner = checkWin(lastSize);
   if (winner) {
@@ -760,6 +934,7 @@ function commitMove(){
   currentPlayer = currentPlayer === "X" ? "O" : "X";
   setCurrentPlayerLabel();
   saveState("");
+  updateGameStats();
 }
 
 function undoMove(){
@@ -807,6 +982,7 @@ function undoMove(){
   setCurrentPlayerLabel();
   setUndoButtonState();
   saveState("");
+  updateGameStats();
 }
 
 function skipTurn(){
@@ -832,11 +1008,15 @@ function generateBoard(forceNewTeams = true, restored = null) {
     moveHistory = restored.moveHistory || [];
     usedPlayers = restored.usedPlayers || [];
     gameLocked = !!restored.gameLocked;
+    roundStartedAt = restored.roundStartedAt || Date.now();
+    elapsedBeforePause = restored.elapsedBeforePause || 0;
   } else {
     currentPlayer = 'X';
     moveHistory = [];
     usedPlayers = [];
     gameLocked = false;
+    roundStartedAt = Date.now();
+    elapsedBeforePause = 0;
 
     if (forceNewTeams) {
       const selected = shuffleFisherYates(teams).slice(0, lastSize * 2);
@@ -850,6 +1030,7 @@ function generateBoard(forceNewTeams = true, restored = null) {
   const size = lastSize;
   setUndoButtonState();
   updateUsedPlayersDisplay();
+  updateGameStats();
 
   const grid = document.getElementById("grid");
   grid.innerHTML = "";
@@ -908,6 +1089,7 @@ function generateBoard(forceNewTeams = true, restored = null) {
   setResult(restored && restored.resultText ? restored.resultText : "");
   setCurrentPlayerLabel();
   setUndoButtonState();
+  updateGameStats();
 
   if (restored && gameLocked) {
     checkWin(size); // stellt die Gewinn-Hervorhebung der Linie wieder her
@@ -919,6 +1101,7 @@ function generateBoard(forceNewTeams = true, restored = null) {
 
   // Fit Board nach Render
   requestAnimationFrame(() => fitBoardToViewport(size));
+  startTimer();
 }
 
 function createTeamCell(name) {
@@ -1002,7 +1185,11 @@ window.addEventListener("load", () => {
     btn.addEventListener("click", () => setSize(parseInt(btn.dataset.size, 10)));
   });
 
-  document.getElementById("newRoundBtn").addEventListener("click", () => generateBoard(true));
+  document.getElementById("newRoundBtn").addEventListener("click", () => {
+    if (moveHistory.length && !confirm('Neue Runde starten? Der aktuelle Spielstand wird ersetzt.')) return;
+    clearSavedState();
+    generateBoard(true);
+  });
 
   const undoBtn = document.getElementById("undoBtn");
   if (undoBtn) undoBtn.addEventListener("click", undoMove);
@@ -1029,6 +1216,12 @@ window.addEventListener("load", () => {
     generateBoard(false);
   });
 
+  const rulesModal = document.getElementById('rulesModal');
+  const closeRules = () => { rulesModal.classList.remove('is-open'); rulesModal.setAttribute('aria-hidden','true'); };
+  document.getElementById('rulesBtn').addEventListener('click', () => { rulesModal.classList.add('is-open'); rulesModal.setAttribute('aria-hidden','false'); });
+  document.getElementById('rulesClose').addEventListener('click', closeRules);
+  rulesModal.addEventListener('click', e => { if (e.target === rulesModal) closeRules(); });
+
   // --- Spieler-Abfrage-Modal ---
   document.getElementById("modalCheck").addEventListener("click", checkAnswer);
   document.getElementById("modalDirect").addEventListener("click", directConfirmAnswer);
@@ -1054,22 +1247,41 @@ window.addEventListener("load", () => {
     if (e.target.id === "nameModal") closeNamePrompt();
   });
 
+  const careerToggle = document.getElementById("careerToggle");
+  const careerBody = document.getElementById("careerBody");
+  if (careerToggle && careerBody) careerToggle.addEventListener("click", () => {
+    const collapsed = careerBody.classList.toggle("is-collapsed");
+    careerToggle.classList.toggle("is-collapsed", collapsed);
+    careerToggle.setAttribute("aria-expanded", String(!collapsed));
+  });
+
   document.getElementById("playerInput").addEventListener("keydown", (e) => {
+    if (["ArrowDown", "ArrowUp"].includes(e.key) && suggestionCandidates.length) {
+      e.preventDefault();
+      activeSuggestionIndex = e.key === "ArrowDown"
+        ? Math.min(activeSuggestionIndex + 1, suggestionCandidates.length - 1)
+        : Math.max(activeSuggestionIndex - 1, 0);
+      renderSuggestionActive();
+      return;
+    }
+    if (e.key === "Escape") { clearSuggestions(); return; }
     if (e.key !== "Enter") return;
     e.preventDefault();
+    if (activeSuggestionIndex >= 0) { selectPlayerSuggestion(activeSuggestionIndex); return; }
     const confirmBtn = document.getElementById("modalConfirm");
-    if (!confirmBtn.disabled) {
-      commitMove();
-    } else {
-      checkAnswer();
-    }
+    if (!confirmBtn.disabled) commitMove(); else checkAnswer();
   });
 
   document.getElementById("playerInput").addEventListener("input", (e) => {
     const q = e.target.value.trim();
+    pending && (pending.candidateName = null, pending.candidateId = null, pending.candidatePhoto = null);
     clearTimeout(suggestDebounceTimer);
-    if (q.length < 3) return;
-    suggestDebounceTimer = setTimeout(() => fetchNameSuggestions(q), 450);
+    if (q.length < 2) { clearSuggestions(); return; }
+    suggestDebounceTimer = setTimeout(() => fetchNameSuggestions(q), 300);
+  });
+
+  document.getElementById("nameModal").addEventListener("click", (e) => {
+    if (!e.target.closest(".player-search-wrap")) clearSuggestions();
   });
 
   document.addEventListener("keydown", (e) => {

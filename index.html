@@ -17,6 +17,7 @@
     <div class="topbar__title">
       <div class="app-title">Bundesliga Tic Tac Toe</div>
       <div id="currentPlayer" class="app-subtitle">Spieler X ist am Zug</div>
+      <div id="gameStats" class="game-stats" aria-live="polite"><span id="movesStat">0 Züge</span><span>•</span><span id="timeStat">00:00</span></div>
     </div>
   </header>
 
@@ -52,7 +53,7 @@
         </label>
       </div>
 
-      <p class="rule-hint">Nenne für jedes Feld einen Spieler, der für beide Vereine gespielt hat – bei Zweifel auf Transfermarkt nachschlagen.</p>
+      <div class="rule-row"><p class="rule-hint">Nenne für jedes Feld einen Spieler, der für beide Vereine gespielt hat.</p><button type="button" id="rulesBtn" class="rules-btn" aria-label="Spielregeln anzeigen">ⓘ Regeln</button></div>
     </section>
 
     <section class="board-card">
@@ -69,6 +70,19 @@
     </section>
   </main>
 
+  <div id="rulesModal" class="modal-overlay" aria-hidden="true">
+    <div class="modal-card rules-card" role="dialog" aria-modal="true" aria-labelledby="rulesTitle">
+      <h2 id="rulesTitle" class="modal-title">Spielregeln</h2>
+      <ul class="rules-list">
+        <li>Gezählt werden Spieler, die für beide angezeigten Vereine im Profibereich gespielt haben.</li>
+        <li>Jugendvereine und Nationalmannschaften zählen nicht als Profiverein.</li>
+        <li><strong>Direkt bestätigen</strong> akzeptiert einen von dir gewussten Treffer ohne automatischen Fact-Check.</li>
+        <li><strong>Prüfen</strong> versucht den Treffer automatisch über Transfermarkt zu verifizieren.</li>
+      </ul>
+      <button type="button" class="btn btn-primary rules-close" id="rulesClose">Verstanden</button>
+    </div>
+  </div>
+
   <div id="nameModal" class="modal-overlay" aria-hidden="true">
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
       <h2 id="modalTitle" class="modal-title">Nenne einen Spieler</h2>
@@ -80,14 +94,19 @@
       </p>
       <p class="modal-hint">Wer hat für beide Vereine gespielt?</p>
 
-      <input id="playerInput" class="modal-input" type="text" placeholder="Name des Spielers" autocomplete="off" list="playerSuggestions" />
-      <datalist id="playerSuggestions"></datalist>
+      <div class="player-search-wrap">
+        <input id="playerInput" class="modal-input" type="text" placeholder="Spieler suchen …" autocomplete="off" aria-autocomplete="list" aria-controls="playerSuggestionList" />
+        <div id="playerSuggestionList" class="player-suggestions" role="listbox" aria-label="Spielervorschläge"></div>
+      </div>
 
       <p id="modalFeedback" class="modal-feedback"></p>
+      <div id="matchSummary" class="match-summary" aria-live="polite"></div>
 
       <div id="transferHistory" class="transfer-history">
-        <div class="transfer-history__title">Vereine in der Karriere</div>
+        <button type="button" id="careerToggle" class="career-toggle" aria-expanded="true">Vereinskarriere <span>⌃</span></button>
+        <div id="careerBody">
         <ul id="transferHistoryList" class="transfer-history__list"></ul>
+        </div>
       </div>
 
       <a id="transfermarktLink" class="modal-tm-link" href="#" target="_blank" rel="noopener">
@@ -115,7 +134,7 @@
     </div>
   </div>
 
-  <script src="logos.js?v=1788080000"></script>
-  <script src="main.js?v=1788080000"></script>
+  <script src="logos.js?v=1788082000"></script>
+  <script src="main.js?v=1788082000"></script>
 </body>
 </html>

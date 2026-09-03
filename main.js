@@ -414,7 +414,7 @@ function extractCareerClubs(markdown) {
     // Die alte Regex akzeptierte nur absolute URLs und verlor dadurch komplette
     // Vereinsstationen (u. a. Nuri Sahin -> Werder Bremen). Wir akzeptieren beide
     // Varianten und lesen den ersten URL-Slug vor /verein/<id> aus.
-    const clubLinkRe = /(?:https?:\/\/www\.transfermarkt\.(?:de|com|co\.uk))?\/([a-z0-9\-]+)\/[a-z0-9\-]*\/verein\/\d+[^\s)"']*/gi;
+    const clubLinkRe = /(?:https?:\/\/www\.transfermarkt\.(?:de|com|co\.uk))?\/([a-z0-9\-]+)(?:\/[a-z0-9\-]+)*\/verein\/\d+[^\s)"']*/gi;
     while ((m = clubLinkRe.exec(section))) {
       if (/saison_id/i.test(m[0])) continue;
       if (/^(spieler|profil|transfers|rueckennummern|x)$/i.test(m[1])) continue;
@@ -535,12 +535,20 @@ async function tryAutoCheck(name, teamA, teamB){
 
     const careerClubs = extractCareerClubs(transfersMd);
     const careerText = careerClubs.join(" | ");
-    // Nur die strukturiert extrahierte Vereinsliste zählt als Beleg – ein Volltext-Fallback
-    // über die ganze Seite (frühere Version) führte zu falschen Bestätigungen, weil z. B.
-    // Spieltermine des aktuellen Vereins ("nächstes Spiel gegen Bayern München") den
-    // gegnerischen Vereinsnamen enthalten, ohne dass der Spieler dort je gespielt hat.
-    const hasA = textContainsTeam(careerText, teamA);
-    const hasB = textContainsTeam(careerText, teamB);
+    let hasA = textContainsTeam(careerText, teamA);
+    let hasB = textContainsTeam(careerText, teamB);
+
+    // WICHTIG: Transfermarkt/Jina liefert die Vereinsliste teilweise nur teilweise
+    // als Markdown-Links. Die Transfers-Seite enthält die tatsächlichen Wechsel
+    // jedoch häufig trotzdem als Text (auch bei Leihen). Deshalb darf eine fehlende
+    // strukturierte Vereinszeile NICHT automatisch als "nicht gespielt" gelten.
+    // Der Fallback ist bewusst nur auf der /transfers/-Quelle aktiv und nicht auf
+    // der allgemeinen Profilseite, um Gegner-/News-Treffer zu vermeiden.
+    const transferSections = transfersMd.split(/===== QUELLE:\s*/i)
+      .filter(section => /\/transfers\/spieler\/\d+/i.test(section));
+    const transferCareerText = transferSections.join("\n");
+    if (!hasA && textContainsTeam(transferCareerText, teamA)) hasA = true;
+    if (!hasB && textContainsTeam(transferCareerText, teamB)) hasB = true;
     const photoUrl = extractPortraitUrl(transfersMd, best.id);
 
     // Show all identifiable clubs in the player's Transfermarkt career.
@@ -563,7 +571,7 @@ function showTransferHistory(rows, attempted, teamA, teamB){
   // Eine sehr kurze Liste (1-2 Einträge) ist bei Spielern mit langer Karriere fast immer
   // unvollständig (Transfermarkt lädt die volle Historie oft per JS nach, das fehlt hier).
   // Eine irreführend kurze Liste ist schlimmer als gar keine – deshalb Schwelle statt blind zeigen.
-  const looksIncomplete = rows && rows.length > 0 && rows.length < 3;
+  const looksIncomplete = rows && rows.length > 0 && rows.length < 3 && !(teamA && teamB && rows.some(r => clubNameMatchesTeam(r, teamA)) && rows.some(r => clubNameMatchesTeam(r, teamB)));
 
   if (rows && rows.length) {
     // Vereine, die zu den gesuchten Feld-Teams passen, zuerst und mit Haken markieren.

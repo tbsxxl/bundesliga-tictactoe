@@ -549,6 +549,39 @@ async function tryAutoCheck(name, teamA, teamB){
     const transferCareerText = transferSections.join("\n");
     if (!hasA && textContainsTeam(transferCareerText, teamA)) hasA = true;
     if (!hasB && textContainsTeam(transferCareerText, teamB)) hasB = true;
+
+    // WICHTIGER FALLBACK: Transfermarkt rendert die Vereinskarriere je nach Spieler
+    // nicht immer auf der /transfers/-Seite. Bei manchen Spielern (insbesondere
+    // Leihen und Jugendstationen) steht der Verein ausschließlich auf der Profil-
+    // bzw. Leistungsdaten-Seite als Vereinslink. Deshalb prüfen wir auch dort, aber
+    // NUR für die beiden tatsächlich gesuchten Vereine. So werden News/Gegner-Links
+    // nicht pauschal als Karrierestationen übernommen.
+    const requestedTeams = [teamA, teamB].filter(Boolean);
+    const allProfileSections = transfersMd.split(/===== QUELLE:\s*/i);
+    const requestedTeamHit = (team) => {
+      if (!team) return false;
+      for (const section of allProfileSections) {
+        // Exakte Vereinslinks: sichtbarer Name ODER Transfermarkt-Slug muss den
+        // gesuchten Verein treffen. Der Link muss auf /verein/<id> zeigen.
+        const clubLinkRe = /\[([^\]\n]{1,120})\]\((?:https?:\/\/www\.transfermarkt\.(?:de|com|co\.uk))?\/[^\s)]*\/verein\/\d+[^\s)]*\)/gi;
+        let m;
+        while ((m = clubLinkRe.exec(section))) {
+          const label = m[1].replace(/^!\[[^\]]*\]$/, '').trim();
+          if (clubNameMatchesTeam(label, team)) return true;
+        }
+        // Zusätzlich slug-basierte Vereinslinks, weil Jina bei Wappen-Links den
+        // sichtbaren Vereinsnamen gelegentlich entfernt.
+        const slugRe = /(?:https?:\/\/www\.transfermarkt\.(?:de|com|co\.uk))?\/([^\s\/()]+)(?:\/[^\s/()]+)*\/verein\/\d+/gi;
+        while ((m = slugRe.exec(section))) {
+          const slugName = slugToClubName(m[1]);
+          if (clubNameMatchesTeam(slugName, team)) return true;
+        }
+      }
+      return false;
+    };
+    if (!hasA) hasA = requestedTeamHit(teamA);
+    if (!hasB) hasB = requestedTeamHit(teamB);
+
     const photoUrl = extractPortraitUrl(transfersMd, best.id);
 
     // Show all identifiable clubs in the player's Transfermarkt career.

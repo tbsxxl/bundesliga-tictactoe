@@ -19,6 +19,8 @@ let roundStartedAt = Date.now();
 let elapsedBeforePause = 0;
 let timerHandle = null;
 let pending = null;   // { r, c, span, teamA, teamB, candidateName }
+let roundOutcome = null; // null | { winner: 'X' | 'O' | null } – null-winner = Unentschieden
+let scores = { X: 0, O: 0 };
 
 function setUndoButtonState() {
   const btn = document.getElementById("undoBtn");
@@ -37,7 +39,53 @@ function shuffleFisherYates(arr) {
 
 function setCurrentPlayerLabel() {
   const el = document.getElementById("currentPlayer");
-  if (el) el.textContent = `Spieler ${currentPlayer} ist am Zug`;
+  const finished = !!roundOutcome;
+  if (el) {
+    el.textContent = finished ? "Runde beendet – starte eine neue Runde" : `Spieler ${currentPlayer} ist am Zug`;
+    el.classList.toggle("is-x", !finished && currentPlayer === "X");
+    el.classList.toggle("is-o", !finished && currentPlayer === "O");
+  }
+  document.getElementById("sideX")?.classList.toggle("is-turn", !finished && currentPlayer === "X");
+  document.getElementById("sideO")?.classList.toggle("is-turn", !finished && currentPlayer === "O");
+  const skipBtn = document.getElementById("skipBtn");
+  if (skipBtn) skipBtn.disabled = gameLocked;
+}
+
+/* --- Punktestand über mehrere Runden --- */
+const SCORE_KEY = "bttt_scores_v1";
+const PREFS_KEY = "bttt_prefs_v1";
+
+function loadScores(){
+  try {
+    const raw = JSON.parse(localStorage.getItem(SCORE_KEY) || "null");
+    if (raw && Number.isFinite(raw.X) && Number.isFinite(raw.O)) scores = { X: raw.X, O: raw.O };
+  } catch (err) { /* ignore */ }
+}
+function saveScores(){
+  try { localStorage.setItem(SCORE_KEY, JSON.stringify(scores)); } catch (err) { /* ignore */ }
+}
+function renderScores(bump){
+  const x = document.getElementById("scoreX");
+  const o = document.getElementById("scoreO");
+  if (x) x.textContent = String(scores.X);
+  if (o) o.textContent = String(scores.O);
+  if (bump) {
+    const el = document.getElementById(bump === "X" ? "sideX" : "sideO");
+    if (el) { el.classList.remove("is-bump"); void el.offsetWidth; el.classList.add("is-bump"); }
+  }
+}
+function adjustScore(player, delta){
+  if (!player) return;
+  scores[player] = Math.max(0, (scores[player] || 0) + delta);
+  saveScores();
+  renderScores(delta > 0 ? player : null);
+}
+
+function loadPrefs(){
+  try { return JSON.parse(localStorage.getItem(PREFS_KEY) || "{}") || {}; } catch (err) { return {}; }
+}
+function savePrefs(prefs){
+  try { localStorage.setItem(PREFS_KEY, JSON.stringify({ ...loadPrefs(), ...prefs })); } catch (err) { /* ignore */ }
 }
 
 /* --- Spielstand-Persistenz (localStorage) ---
@@ -49,7 +97,7 @@ function saveState(resultText){
   try {
     const state = {
       lastSize, topTeams, sideTeams, boardState,
-      currentPlayer, moveHistory, usedPlayers, gameLocked,
+      currentPlayer, moveHistory, usedPlayers, gameLocked, roundOutcome,
       resultText: resultText || "",
       roundStartedAt, elapsedBeforePause,
     };
@@ -99,10 +147,12 @@ function setResult(text, tone = "muted") {
   const el = document.getElementById("result");
   if (!el) return;
   el.textContent = text || "";
-  el.style.color =
-    tone === "x" ? "var(--accent)" :
-    tone === "o" ? "var(--accent2)" :
-    "var(--muted)";
+  el.className = "result__text" + (text ? ` is-visible is-${tone}` : "");
+}
+
+function resultToneFor(outcome){
+  if (!outcome) return "muted";
+  return outcome.winner === "X" ? "x" : outcome.winner === "O" ? "o" : "draw";
 }
 
 /* --- Fit-to-Viewport: garantiert KEIN Scroll (auch 5x5) --- */
@@ -128,8 +178,8 @@ function fitBoardToViewport(size){
 
   let cell = Math.floor(Math.min(cellFromW, cellFromH));
 
-  // Minimum Tap Target (iOS)
-  cell = Math.max(44, cell);
+  // Minimum Tap Target (iOS) und Obergrenze, damit es auf großen Screens nicht klobig wirkt
+  cell = Math.max(44, Math.min(cell, 150));
 
   const logo = Math.floor(cell * 0.55);
   const mark = Math.floor(cell * 0.48);
@@ -147,19 +197,15 @@ function fitBoardToViewport(size){
 function lockBoard(){
   if (!gameLocked) elapsedBeforePause += Date.now() - roundStartedAt;
   gameLocked = true;
-  document.querySelectorAll(".cell").forEach(cell => {
-    cell.style.pointerEvents = "none";
-    cell.style.opacity = "0.98";
-  });
+  document.getElementById("grid")?.classList.add("is-locked");
+  document.querySelectorAll(".cell").forEach(cell => cell.setAttribute("aria-disabled", "true"));
 }
 
 function unlockBoard(){
   gameLocked = false;
   roundStartedAt = Date.now();
-  document.querySelectorAll(".cell").forEach(cell => {
-    cell.style.pointerEvents = "auto";
-    cell.style.opacity = "1";
-  });
+  document.getElementById("grid")?.classList.remove("is-locked");
+  document.querySelectorAll(".cell").forEach(cell => cell.removeAttribute("aria-disabled"));
 }
 
 function clearWinHighlights(){
@@ -187,8 +233,49 @@ function normalizeName(str) {
    3. Spielerprofil abrufen und Karriere-/Jugendvereine auswerten
    4. beide gesuchten Vereine automatisch prüfen
 */
-const TM_READER_BASE = "https://r.jina.ai/http://www.transfermarkt.de";
 const TM_SITE = "https://www.transfermarkt.de";
+
+/* Auf Cloudflare läuft ein Worker unter /api/tm, der Transfermarkt über r.jina.ai
+   abruft und die Antworten im Edge-Cache hält (schneller, weniger Rate-Limits).
+   Lokal (file://) oder auf reinem Static-Hosting ohne Worker wird automatisch
+   direkt r.jina.ai verwendet. */
+const TM_PROXY = "/api/tm?path=";
+let tmProxyAvailable = /^https?:$/.test(location.protocol);
+const tmResponseCache = new Map(); // path -> Promise<string>
+
+function directReaderUrl(path){
+  const scheme = path.startsWith("/schnellsuche/") ? "http" : "https";
+  return `https://r.jina.ai/${scheme}://www.transfermarkt.de${path}`;
+}
+
+async function fetchTmText(path, ms){
+  if (tmResponseCache.has(path)) return tmResponseCache.get(path);
+  const job = (async () => {
+    if (tmProxyAvailable) {
+      try {
+        const res = await fetchWithTimeout(TM_PROXY + encodeURIComponent(path), ms);
+        if (res.ok) return await res.text();
+        // 404 = kein Worker vorhanden (z. B. GitHub Pages) -> künftig direkt gehen.
+        // Andere Fehler (Rate-Limit, Upstream down): einmal direkt versuchen.
+        if (res.status === 404 || res.status === 405) tmProxyAvailable = false;
+      } catch (err) {
+        // Timeout: nicht noch einmal genauso lange direkt warten.
+        if (err && err.name === "AbortError") throw err;
+      }
+    }
+    const res = await fetchWithTimeout(directReaderUrl(path), ms, { "x-timeout": "6" });
+    if (!res.ok) throw new Error(`Transfermarkt HTTP ${res.status}`);
+    return await res.text();
+  })();
+  tmResponseCache.set(path, job);
+  // Fehlschläge nicht cachen, damit ein erneuter Versuch möglich ist.
+  job.catch(() => tmResponseCache.delete(path));
+  return job;
+}
+
+function tmSearchPath(query){
+  return `/schnellsuche/ergebnis/schnellsuche?query=${encodeURIComponent(query)}`;
+}
 
 const teamKeywords = {
   "FC Bayern München": ["bayern munchen", "bayern münchen", "bayern munich", "fc bayern"],
@@ -227,7 +314,7 @@ function textContainsTeam(text, team) {
   });
 }
 
-async function fetchWithTimeout(url, ms){
+async function fetchWithTimeout(url, ms, extraHeaders = {}){
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), ms);
   try {
@@ -235,9 +322,8 @@ async function fetchWithTimeout(url, ms){
       signal: controller.signal,
       headers: {
         "Accept": "text/plain,text/html,application/json,*/*",
-        // Weist r.jina.ai an, nicht ewig auf vollständiges JS-Rendering zu warten,
-        // sondern nach ~6s mit dem zu antworten, was bis dahin da ist.
-        "x-timeout": "6",
+        // x-timeout weist r.jina.ai an, nicht ewig auf vollständiges JS-Rendering zu warten.
+        ...extraHeaders,
       }
     });
   } finally {
@@ -324,10 +410,7 @@ function extractTransfermarktProfileUrls(markdown) {
 }
 
 async function searchTransfermarktPlayer(name) {
-  const searchUrl = `${TM_READER_BASE}/schnellsuche/ergebnis/schnellsuche?query=${encodeURIComponent(name)}`;
-  const res = await fetchWithTimeout(searchUrl, 9000);
-  if (!res.ok) throw new Error(`Transfermarkt-Suche HTTP ${res.status}`);
-  const md = await res.text();
+  const md = await fetchTmText(tmSearchPath(name), 14000);
   const candidates = extractPlayerCandidates(md, name);
   if (!candidates.length) {
     // Fallback: search page can sometimes be returned with links encoded differently.
@@ -348,21 +431,15 @@ async function fetchTransfermarktTransfers(playerId, slug = "") {
   // Rückennummern-Historie, die Transfermarkt als Karriereübersicht führt.
   // Parallel statt nacheinander laden – das ist der größte Geschwindigkeitshebel,
   // da drei serielle Requests sich sonst zu bis zu ~30s aufaddieren können.
-  const urls = [
-    `${TM_SITE}/${slug ? slug + "/" : ""}transfers/spieler/${playerId}`,
-    `${TM_SITE}/${slug ? slug + "/" : ""}rueckennummern/spieler/${playerId}`,
-    `${TM_SITE}/${slug ? slug + "/" : ""}profil/spieler/${playerId}`
-  ];
-  const results = await Promise.allSettled(
-    urls.map(url => fetchWithTimeout(`https://r.jina.ai/${url}`, 9000).then(res => ({ url, res })))
-  );
+  const prefix = slug ? `/${slug}` : "";
+  const paths = ["transfers", "rueckennummern", "profil"].map(kind => `${prefix}/${kind}/spieler/${playerId}`);
+  const results = await Promise.allSettled(paths.map(path => fetchTmText(path, 14000)));
   const chunks = [];
-  for (const r of results) {
-    if (r.status !== "fulfilled" || !r.value.res.ok) continue;
-    const { url, res } = r.value;
-    const md = await res.text();
-    if (md && md.length > 200) chunks.push(`\n\n===== QUELLE: ${url} =====\n${md}`);
-  }
+  results.forEach((r, i) => {
+    if (r.status !== "fulfilled") return;
+    const md = r.value;
+    if (md && md.length > 200) chunks.push(`\n\n===== QUELLE: ${TM_SITE}${paths[i]} =====\n${md}`);
+  });
   if (!chunks.length) throw new Error("Transfermarkt-Karrieredaten konnten nicht geladen werden");
   return chunks.join("\n");
 }
@@ -648,15 +725,31 @@ function showTransferHistory(rows, attempted, teamA, teamB){
 let suggestDebounceTimer = null;
 let suggestionCandidates = [];
 let activeSuggestionIndex = -1;
+let suggestToken = 0;
+
+function setSearchBusy(busy){
+  const spinner = document.getElementById("searchSpinner");
+  if (spinner) spinner.classList.toggle("is-visible", !!busy);
+}
+
+function setSuggestionsVisible(visible){
+  const list = document.getElementById("playerSuggestionList");
+  const input = document.getElementById("playerInput");
+  if (list) list.classList.toggle("is-visible", visible);
+  if (input) input.setAttribute("aria-expanded", String(visible));
+}
+
 async function fetchNameSuggestions(query){
   const list = document.getElementById("playerSuggestionList");
   if (!list) return;
-  if (query.length < 2) { list.innerHTML = ""; list.classList.remove("is-visible"); suggestionCandidates = []; return; }
+  if (query.length < 2) { clearSuggestions(); return; }
+  const token = ++suggestToken;
+  setSearchBusy(true);
   try {
-    const searchUrl = `${TM_READER_BASE}/schnellsuche/ergebnis/schnellsuche?query=${encodeURIComponent(query)}`;
-    const res = await fetchWithTimeout(searchUrl, 8000);
-    if (!res.ok) return;
-    const md = await res.text();
+    const md = await fetchTmText(tmSearchPath(query), 12000);
+    if (token !== suggestToken) return; // veraltete Antwort – neuere Eingabe läuft bereits
+    const input = document.getElementById("playerInput");
+    if (!input || input.value.trim() !== query || !pending) return;
     suggestionCandidates = extractPlayerCandidates(md, query)
       .filter(c => !usedPlayers.some(p => p.norm === normalizeName(c.name)))
       .sort((a,b) => scorePlayerCandidate(b, query) - scorePlayerCandidate(a, query))
@@ -667,19 +760,22 @@ async function fetchNameSuggestions(query){
       const row = document.createElement("button");
       row.type = "button";
       row.className = "player-suggestion";
+      row.id = `player-suggestion-${i}`;
       row.setAttribute("role", "option");
       row.dataset.index = String(i);
       const title = document.createElement("strong");
       title.textContent = c.name;
       const meta = document.createElement("span");
-      meta.textContent = "Transfermarkt-Spieler";
+      meta.textContent = "Transfermarkt · Prüfung startet automatisch";
       row.append(title, meta);
       row.addEventListener("click", () => selectPlayerSuggestion(i));
       list.appendChild(row);
     });
-    list.classList.toggle("is-visible", suggestionCandidates.length > 0);
+    setSuggestionsVisible(suggestionCandidates.length > 0);
   } catch (err) {
     // Komfortfunktion – ein Fehlschlag blockiert nie die manuelle Eingabe.
+  } finally {
+    if (token === suggestToken) setSearchBusy(false);
   }
 }
 
@@ -693,8 +789,7 @@ async function selectPlayerSuggestion(index){
   pending.candidateName = c.name;
   pending.candidateId = c.id;
   pending.candidateSlug = c.slug;
-  const list = document.getElementById("playerSuggestionList");
-  if (list) list.classList.remove("is-visible");
+  clearSuggestions();
   // Automatische Prüfung direkt nach Auswahl – der Button "Prüfen" bleibt als erneuter Check.
   const token = ++autoCheckToken;
   setModalFeedback(`✓ ${c.name} ausgewählt – prüfe Vereine …`, "warn");
@@ -705,12 +800,24 @@ async function selectPlayerSuggestion(index){
 function renderSuggestionActive(){
   const list = document.getElementById("playerSuggestionList");
   if (!list) return;
-  [...list.children].forEach((el, i) => el.classList.toggle("is-active", i === activeSuggestionIndex));
+  [...list.children].forEach((el, i) => {
+    el.classList.toggle("is-active", i === activeSuggestionIndex);
+    el.setAttribute("aria-selected", String(i === activeSuggestionIndex));
+    if (i === activeSuggestionIndex) el.scrollIntoView({ block: "nearest" });
+  });
+  const input = document.getElementById("playerInput");
+  if (input) {
+    if (activeSuggestionIndex >= 0) input.setAttribute("aria-activedescendant", `player-suggestion-${activeSuggestionIndex}`);
+    else input.removeAttribute("aria-activedescendant");
+  }
 }
 
 function clearSuggestions(){
   const list = document.getElementById("playerSuggestionList");
-  if (list) { list.innerHTML = ""; list.classList.remove("is-visible"); }
+  if (list) list.innerHTML = "";
+  setSuggestionsVisible(false);
+  setSearchBusy(false);
+  suggestToken++;
   suggestionCandidates = [];
   activeSuggestionIndex = -1;
 }
@@ -798,6 +905,7 @@ function openNamePrompt(r, c, span, teamA, teamB){
   const modal = document.getElementById("nameModal");
   modal.classList.add("is-open");
   modal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("modal-open");
 
   setTimeout(() => input.focus(), 30);
 }
@@ -806,7 +914,11 @@ function closeNamePrompt(){
   const modal = document.getElementById("nameModal");
   modal.classList.remove("is-open");
   modal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("modal-open");
+  clearSuggestions();
+  const returnFocus = pending && pending.span && pending.span.parentElement;
   pending = null;
+  if (returnFocus && !returnFocus.hasAttribute("aria-disabled")) returnFocus.focus({ preventScroll: true });
 }
 
 function directConfirmAnswer(){
@@ -827,7 +939,7 @@ function directConfirmAnswer(){
   setModalFeedback(`✓ ${raw}: direkt bestätigt.`, "success");
   showManualConfirm(false);
   // Direkt bestätigen ist bewusst ein Ein-Klick-Weg: sofort ins Feld übernehmen.
-  commitMove();
+  commitMove(true);
 }
 
 async function checkAnswer(){
@@ -941,11 +1053,12 @@ function renderCellMark(span, player, photoUrl, playerName){
   }
 }
 
-function commitMove(){
+function commitMove(force = false){
   if (!pending || !pending.candidateName) return;
 
+  // "Direkt bestätigen" darf ohne aktivierten "Feld setzen"-Button übernehmen.
   const confirmBtn = document.getElementById("modalConfirm");
-  if (confirmBtn.disabled) return;
+  if (!force && confirmBtn.disabled) return;
 
   const { r, c, span, candidateName, candidatePhoto } = pending;
 
@@ -965,10 +1078,23 @@ function commitMove(){
   const winner = checkWin(lastSize);
   if (winner) {
     const winText = `🏆 Spieler ${winner} gewinnt!`;
+    roundOutcome = { winner };
+    adjustScore(winner, +1);
     setResult(winText, winner === "X" ? "x" : "o");
     lockBoard();
+    setCurrentPlayerLabel();
     saveState(winText);
     if (navigator.vibrate) navigator.vibrate([20, 40, 20]);
+    return;
+  }
+
+  if (boardState.every(row => row.every(v => v !== "?"))) {
+    const drawText = "🤝 Unentschieden – alle Felder belegt!";
+    roundOutcome = { winner: null };
+    setResult(drawText, "draw");
+    lockBoard();
+    setCurrentPlayerLabel();
+    saveState(drawText);
     return;
   }
 
@@ -985,6 +1111,7 @@ function undoMove(){
   const last = moveHistory.pop();
 
   if (last.type === "skip") {
+    if (gameLocked) { moveHistory.push(last); return; }
     // Restore the player who had the skipped turn
     currentPlayer = last.player;
     setCurrentPlayerLabel();
@@ -1011,7 +1138,9 @@ function undoMove(){
     }
   }
 
-  // Wenn vorher gewonnen wurde: Ergebnis/Highlights entfernen und wieder spielbar machen
+  // Wenn vorher gewonnen/unentschieden war: Ergebnis zurücknehmen und wieder spielbar machen
+  if (roundOutcome && roundOutcome.winner) adjustScore(roundOutcome.winner, -1);
+  roundOutcome = null;
   if (gameLocked) {
     unlockBoard();
     setResult("");
@@ -1028,6 +1157,7 @@ function undoMove(){
 
 function skipTurn(){
   if (gameLocked) return;
+  if (navigator.vibrate) navigator.vibrate(8);
 
   // Skip is undoable
   moveHistory.push({ type: "skip", player: currentPlayer });
@@ -1049,6 +1179,7 @@ function generateBoard(forceNewTeams = true, restored = null) {
     moveHistory = restored.moveHistory || [];
     usedPlayers = restored.usedPlayers || [];
     gameLocked = !!restored.gameLocked;
+    roundOutcome = restored.roundOutcome || null;
     roundStartedAt = restored.roundStartedAt || Date.now();
     elapsedBeforePause = restored.elapsedBeforePause || 0;
   } else {
@@ -1056,6 +1187,7 @@ function generateBoard(forceNewTeams = true, restored = null) {
     moveHistory = [];
     usedPlayers = [];
     gameLocked = false;
+    roundOutcome = null;
     roundStartedAt = Date.now();
     elapsedBeforePause = 0;
 
@@ -1075,6 +1207,8 @@ function generateBoard(forceNewTeams = true, restored = null) {
 
   const grid = document.getElementById("grid");
   grid.innerHTML = "";
+  grid.classList.toggle("is-locked", gameLocked);
+  grid.dataset.size = String(size);
 
   // Wichtig: Spalten/Rows sind (size+1)
   grid.style.gridTemplateColumns = `repeat(${size + 1}, var(--cell))`;
@@ -1089,8 +1223,11 @@ function generateBoard(forceNewTeams = true, restored = null) {
     grid.appendChild(createTeamCell(sideTeams[r]));
 
     for (let c = 0; c < size; c++) {
-      const cell = document.createElement("div");
+      const cell = document.createElement("button");
+      cell.type = "button";
       cell.className = "cell";
+      cell.setAttribute("aria-label", `${sideTeams[r]} & ${topTeams[c]}`);
+      if (gameLocked) cell.setAttribute("aria-disabled", "true");
 
       const span = document.createElement("span");
       span.className = "cell-content";
@@ -1127,7 +1264,7 @@ function generateBoard(forceNewTeams = true, restored = null) {
     }
   }
 
-  setResult(restored && restored.resultText ? restored.resultText : "");
+  setResult(restored && restored.resultText ? restored.resultText : "", resultToneFor(roundOutcome));
   setCurrentPlayerLabel();
   setUndoButtonState();
   updateGameStats();
@@ -1148,27 +1285,44 @@ function generateBoard(forceNewTeams = true, restored = null) {
 function createTeamCell(name) {
   const div = document.createElement("div");
   div.className = "team-logo";
+  div.title = name;
+  div.setAttribute("role", "img");
+  div.setAttribute("aria-label", name);
 
-  if (typeof teamData !== "undefined" && teamData[name]) {
-    div.style.backgroundColor = teamData[name].color || "#444";
+  const data = typeof teamData !== "undefined" ? teamData[name] : null;
+  div.style.setProperty("--team", (data && data.color) || "#444");
 
-    if (teamData[name].logo) {
-      const img = document.createElement("img");
-      img.src = teamData[name].logo;
-      img.alt = name;
-      img.className = "team-img";
-      div.appendChild(img);
-    }
+  if (data && data.logo) {
+    const img = document.createElement("img");
+    img.src = data.logo;
+    img.alt = "";
+    img.className = "team-img";
+    img.decoding = "async";
+    img.referrerPolicy = "no-referrer";
+    // Falls Wikimedia nicht lädt: Kürzel statt kaputtem Bild anzeigen.
+    img.addEventListener("error", () => {
+      img.remove();
+      const fallback = document.createElement("strong");
+      fallback.className = "team-fallback";
+      fallback.textContent = teamInitials(name);
+      div.prepend(fallback);
+    });
+    div.appendChild(img);
   }
 
-  const logoOnly = document.getElementById("logoOnly");
-  if (!logoOnly || !logoOnly.checked) {
-    const span = document.createElement("span");
-    span.innerText = name;
-    div.appendChild(span);
-  }
+  // Der Name wird immer gerendert und nur per CSS ausgeblendet ("Nur Logos" /
+  // kompakte Ansicht) – so muss das Brett beim Umschalten nicht neu aufgebaut werden.
+  const span = document.createElement("span");
+  span.textContent = (data && data.short) || name;
+  div.appendChild(span);
 
   return div;
+}
+
+function teamInitials(name){
+  return name.replace(/^\d+\.\s*/, "").split(/\s+/)
+    .filter(w => !/^(FC|SC|SV|TSG|VfB|RB|FSV|\d+)$/i.test(w))
+    .map(w => w[0]).join("").slice(0, 3).toUpperCase() || name.slice(0, 3).toUpperCase();
 }
 
 function checkWin(size) {
@@ -1204,30 +1358,55 @@ function checkWin(size) {
   return null;
 }
 
-function setSize(size){
-  lastSize = size;
-
+function markActiveSize(size){
   document.querySelectorAll(".segmented__btn").forEach(b => {
     const active = parseInt(b.dataset.size, 10) === size;
     b.classList.toggle("is-active", active);
-    b.setAttribute("aria-selected", active ? "true" : "false");
+    b.setAttribute("aria-checked", active ? "true" : "false");
   });
+}
 
+function setSize(size){
+  lastSize = size;
+  markActiveSize(size);
   generateBoard(true);
 }
 
-window.addEventListener("resize", () => fitBoardToViewport(lastSize));
+function roundInProgress(){
+  return moveHistory.length > 0 && !roundOutcome;
+}
+
+// Brett neu einpassen, sobald sich der verfügbare Platz ändert – auch wenn z. B.
+// das Ergebnis-Banner oder weitere genannte Spieler das Layout verschieben.
+let resizeRaf = 0;
+function scheduleFit(){
+  cancelAnimationFrame(resizeRaf);
+  resizeRaf = requestAnimationFrame(() => fitBoardToViewport(lastSize));
+}
+window.addEventListener("resize", scheduleFit);
+
 window.addEventListener("orientationchange", () => {
   setTimeout(() => fitBoardToViewport(lastSize), 150);
 });
 
-window.addEventListener("load", () => {
+function init(){
+  loadScores();
+  renderScores();
+
+  const boardCard = document.querySelector(".board-card");
+  if (boardCard && typeof ResizeObserver !== "undefined") new ResizeObserver(scheduleFit).observe(boardCard);
+
   document.querySelectorAll(".segmented__btn").forEach(btn => {
-    btn.addEventListener("click", () => setSize(parseInt(btn.dataset.size, 10)));
+    btn.addEventListener("click", () => {
+      const size = parseInt(btn.dataset.size, 10);
+      if (size === lastSize && !roundOutcome && moveHistory.length === 0) return;
+      if (roundInProgress() && !confirm(`Auf ${size}×${size} wechseln? Die laufende Runde wird beendet.`)) return;
+      setSize(size);
+    });
   });
 
   document.getElementById("newRoundBtn").addEventListener("click", () => {
-    if (moveHistory.length && !confirm('Neue Runde starten? Der aktuelle Spielstand wird ersetzt.')) return;
+    if (roundInProgress() && !confirm('Neue Runde starten? Der aktuelle Spielstand wird ersetzt.')) return;
     clearSavedState();
     generateBoard(true);
   });
@@ -1252,16 +1431,31 @@ window.addEventListener("load", () => {
     undoMove();
   });
 
-  document.getElementById("logoOnly").addEventListener("change", (e) => {
+  // "Nur Logos" blendet nur per CSS aus – der laufende Spielstand bleibt erhalten.
+  const logoOnly = document.getElementById("logoOnly");
+  logoOnly.checked = !!loadPrefs().logoOnly;
+  document.body.classList.toggle("only-logos", logoOnly.checked);
+  logoOnly.addEventListener("change", (e) => {
     document.body.classList.toggle("only-logos", e.target.checked);
-    generateBoard(false);
+    savePrefs({ logoOnly: e.target.checked });
   });
 
   const rulesModal = document.getElementById('rulesModal');
-  const closeRules = () => { rulesModal.classList.remove('is-open'); rulesModal.setAttribute('aria-hidden','true'); };
-  document.getElementById('rulesBtn').addEventListener('click', () => { rulesModal.classList.add('is-open'); rulesModal.setAttribute('aria-hidden','false'); });
+  const rulesBtn = document.getElementById('rulesBtn');
+  const closeRules = () => { rulesModal.classList.remove('is-open'); rulesModal.setAttribute('aria-hidden','true'); rulesBtn.focus(); };
+  rulesBtn.addEventListener('click', () => {
+    rulesModal.classList.add('is-open');
+    rulesModal.setAttribute('aria-hidden','false');
+    document.getElementById('rulesClose').focus();
+  });
   document.getElementById('rulesClose').addEventListener('click', closeRules);
   rulesModal.addEventListener('click', e => { if (e.target === rulesModal) closeRules(); });
+  document.getElementById('resetScoreBtn').addEventListener('click', () => {
+    if (!confirm('Punktestand wirklich auf 0 : 0 zurücksetzen?')) return;
+    scores = { X: 0, O: 0 };
+    saveScores();
+    renderScores();
+  });
 
   // --- Spieler-Abfrage-Modal ---
   document.getElementById("modalCheck").addEventListener("click", checkAnswer);
@@ -1276,7 +1470,7 @@ window.addEventListener("load", () => {
       box.select();
     }
   });
-  document.getElementById("modalConfirm").addEventListener("click", commitMove);
+  document.getElementById("modalConfirm").addEventListener("click", () => commitMove());
   document.getElementById("modalCancel").addEventListener("click", closeNamePrompt);
 
   document.getElementById("manualConfirm").addEventListener("change", (e) => {
@@ -1326,9 +1520,9 @@ window.addEventListener("load", () => {
   });
 
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && document.getElementById("nameModal").classList.contains("is-open")) {
-      closeNamePrompt();
-    }
+    if (e.key !== "Escape") return;
+    if (document.getElementById("nameModal").classList.contains("is-open")) closeNamePrompt();
+    else if (rulesModal.classList.contains("is-open")) closeRules();
   });
 
   // Gespeicherten Spielstand wiederherstellen (z. B. nach Tab-Reload auf dem Handy),
@@ -1336,13 +1530,12 @@ window.addEventListener("load", () => {
   const saved = loadState();
   if (saved) {
     lastSize = saved.lastSize;
-    document.querySelectorAll(".segmented__btn").forEach(b => {
-      const active = parseInt(b.dataset.size, 10) === saved.lastSize;
-      b.classList.toggle("is-active", active);
-      b.setAttribute("aria-selected", active ? "true" : "false");
-    });
+    markActiveSize(saved.lastSize);
     generateBoard(false, saved);
   } else {
     setSize(3);
   }
-});
+}
+
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+else init();

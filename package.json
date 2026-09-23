@@ -1,0 +1,14 @@
+{
+  "name": "bundesliga-tictactoe",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Bundesliga Tic Tac Toe – Fußball-Quiz auf Cloudflare Workers",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "check": "node --check public/main.js && node --check public/logos.js && node --check src/worker.js"
+  },
+  "devDependencies": {
+    "wrangler": "^4.137.0"
+  }
+}

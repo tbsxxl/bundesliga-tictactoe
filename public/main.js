@@ -522,7 +522,7 @@ function extractCareerClubs(markdown) {
 
   // Jugendvereine sind auf dem Profil häufig als plain text vorhanden. Sie werden
   // bewusst nur aus dem expliziten Jugendvereine-Block übernommen.
-  const youth = markdown.match(/(?:Jugendvereine|Youth clubs|Clubs juveniles|Clubes juveniles)\s*\n+([^\n]+)/i);
+  const youth = markdown.match(/(?:Jugendvereine|Youth clubs|Clubs juveniles|Clubes juveniles):?[ \t]*\n*([^\n]+)/i);
   if (youth) youth[1].split(/,\s*/).forEach(x => add(x.replace(/\s*\([^)]*\)/g, '')));
   return clubs;
 }
@@ -739,6 +739,13 @@ function setSuggestionsVisible(visible){
   if (input) input.setAttribute("aria-expanded", String(visible));
 }
 
+const prefetchedIds = new Set();
+function prefetchCareer(candidate){
+  if (!candidate || !candidate.id || prefetchedIds.has(candidate.id)) return;
+  prefetchedIds.add(candidate.id);
+  fetchTransfermarktTransfers(candidate.id, candidate.slug || "").catch(() => prefetchedIds.delete(candidate.id));
+}
+
 async function fetchNameSuggestions(query){
   const list = document.getElementById("playerSuggestionList");
   if (!list) return;
@@ -769,9 +776,15 @@ async function fetchNameSuggestions(query){
       meta.textContent = "Transfermarkt · Prüfung startet automatisch";
       row.append(title, meta);
       row.addEventListener("click", () => selectPlayerSuggestion(i));
+      row.addEventListener("pointerenter", () => prefetchCareer(c));
+      row.addEventListener("touchstart", () => prefetchCareer(c), { passive: true });
       list.appendChild(row);
     });
     setSuggestionsVisible(suggestionCandidates.length > 0);
+    // Vorladen: Karrieredaten des besten Treffers schon holen, während der Nutzer
+    // noch schaut – beim Antippen ist die Prüfung dann praktisch sofort fertig.
+    const top = suggestionCandidates[0];
+    if (top && scorePlayerCandidate(top, query) >= 700) prefetchCareer(top);
   } catch (err) {
     // Komfortfunktion – ein Fehlschlag blockiert nie die manuelle Eingabe.
   } finally {
@@ -1431,6 +1444,23 @@ function init(){
     undoMove();
   });
 
+  // Dark Mode nur auf Wunsch (Standard: hell), Auswahl wird gemerkt.
+  const themeBtn = document.getElementById("themeBtn");
+  const applyTheme = (dark) => {
+    if (dark) document.documentElement.dataset.theme = "dark";
+    else delete document.documentElement.dataset.theme;
+    themeBtn.textContent = dark ? "☀️" : "🌙";
+    themeBtn.setAttribute("aria-pressed", String(dark));
+    themeBtn.setAttribute("aria-label", dark ? "Hellen Modus einschalten" : "Dark Mode einschalten");
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#0c0e12" : "#f3f3f5");
+  };
+  applyTheme(loadPrefs().theme === "dark");
+  themeBtn.addEventListener("click", () => {
+    const dark = document.documentElement.dataset.theme !== "dark";
+    applyTheme(dark);
+    savePrefs({ theme: dark ? "dark" : "light" });
+  });
+
   // "Nur Logos" blendet nur per CSS aus – der laufende Spielstand bleibt erhalten.
   const logoOnly = document.getElementById("logoOnly");
   logoOnly.checked = !!loadPrefs().logoOnly;
@@ -1512,7 +1542,7 @@ function init(){
     pending && (pending.candidateName = null, pending.candidateId = null, pending.candidatePhoto = null);
     clearTimeout(suggestDebounceTimer);
     if (q.length < 2) { clearSuggestions(); return; }
-    suggestDebounceTimer = setTimeout(() => fetchNameSuggestions(q), 300);
+    suggestDebounceTimer = setTimeout(() => fetchNameSuggestions(q), 220);
   });
 
   document.getElementById("nameModal").addEventListener("click", (e) => {

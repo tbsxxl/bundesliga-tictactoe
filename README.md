@@ -23,22 +23,22 @@ npm install
 npm run dev        # http://localhost:8787
 ```
 
-## Deployen
+## Deployen (ohne lokale Installation)
 
-Einmalig:
+1. Im [Cloudflare-Dashboard](https://dash.cloudflare.com) → **Workers & Pages** → **Create application** → **Import a repository**.
+2. GitHub verbinden und `tbsxxl/bundesliga-tictactoe` auswählen.
+3. Einstellungen übernehmen (Cloudflare erkennt `wrangler.jsonc`; Deploy-Befehl `npx wrangler deploy`) → **Deploy**.
+
+Danach deployt Cloudflare bei jedem Push auf den Produktions-Branch automatisch.
+Die URL lautet `https://bundesliga-tictactoe.<dein-account>.workers.dev`; eigene Domain unter
+Worker → Settings → Domains & Routes.
+
+Optional für höhere r.jina.ai-Limits: im Worker unter Settings → Variables and Secrets ein Secret `JINA_API_KEY` anlegen.
+
+### Alternativ lokal
 
 ```bash
+npm install
 npx wrangler login
-npm run deploy     # → https://bundesliga-tictactoe.<dein-account>.workers.dev
+npm run deploy
 ```
-
-Optional für höhere r.jina.ai-Limits: `npx wrangler secret put JINA_API_KEY`
-
-### Automatisch über GitHub Actions
-
-Bei jedem Push auf `main` deployt `.github/workflows/deploy.yml`. Dafür im Repo unter *Settings → Secrets and variables → Actions* anlegen:
-
-- `CLOUDFLARE_API_TOKEN` – Token mit der Vorlage „Edit Cloudflare Workers“
-- `CLOUDFLARE_ACCOUNT_ID` – steht im Cloudflare-Dashboard rechts in der Übersicht
-
-Eigene Domain: Cloudflare-Dashboard → Workers & Pages → *bundesliga-tictactoe* → Settings → Domains & Routes.

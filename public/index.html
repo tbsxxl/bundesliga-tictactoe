@@ -5,9 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Bundesliga Tic Tac Toe</title>
   <meta name="description" content="Fußball-Quiz für zwei: Nenne Spieler, die für beide Bundesliga-Vereine gespielt haben – und hol dir drei in einer Reihe." />
-  <meta name="theme-color" content="#c8102e" media="(prefers-color-scheme: light)" />
-  <meta name="theme-color" content="#0e1014" media="(prefers-color-scheme: dark)" />
-  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#f3f3f5" />
+  <script>
+    // Theme vor dem ersten Rendern setzen (kein Aufblitzen). Standard: hell.
+    try { if ((JSON.parse(localStorage.getItem("bttt_prefs_v1") || "{}") || {}).theme === "dark") document.documentElement.dataset.theme = "dark"; } catch (e) {}
+  </script>
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta property="og:title" content="Bundesliga Tic Tac Toe" />
@@ -38,6 +40,8 @@
       </div>
     </div>
 
+    <div class="topbar__right">
+    <button type="button" id="themeBtn" class="theme-btn" aria-label="Dark Mode einschalten" aria-pressed="false">🌙</button>
     <div class="scoreboard" id="scoreboard" aria-label="Spielstand">
       <div class="scoreboard__side scoreboard__side--x is-turn" id="sideX">
         <span class="scoreboard__mark">X</span>
@@ -48,6 +52,7 @@
         <span class="scoreboard__score" id="scoreO">0</span>
         <span class="scoreboard__mark">O</span>
       </div>
+    </div>
     </div>
   </header>
 

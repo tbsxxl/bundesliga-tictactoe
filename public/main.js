@@ -42,7 +42,7 @@ function setCurrentPlayerLabel() {
   const el = document.getElementById("currentPlayer");
   const finished = !!roundOutcome;
   if (el) {
-    el.textContent = finished ? "Runde beendet – starte eine neue Runde" : `Spieler ${currentPlayer} ist am Zug`;
+    el.textContent = finished ? "Runde beendet" : `Spieler ${currentPlayer} ist am Zug`;
     el.classList.toggle("is-x", !finished && currentPlayer === "X");
     el.classList.toggle("is-o", !finished && currentPlayer === "O");
   }

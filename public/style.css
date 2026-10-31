@@ -225,6 +225,7 @@ body.modal-open{ overflow: hidden; }
 }
 .turn-pill{
   margin: 0;
+  white-space: nowrap;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -390,7 +391,7 @@ body.only-logos .team-fallback, body.compact .team-fallback{
 .cell:active{ transform: scale(0.94); }
 @media (hover: hover){ .cell:hover{ background: var(--fill-strong); } }
 .grid.is-locked .cell{ cursor: default; pointer-events: none; }
-.grid.is-locked .cell:not(.correct-x):not(.correct-o){ opacity: 0.45; }
+.grid.is-locked .cell:not(.correct-x):not(.correct-o){ opacity: 0.7; filter: saturate(0.6); }
 
 .cell-content{
   font-family: var(--font-rounded);

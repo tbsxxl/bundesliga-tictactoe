@@ -262,6 +262,59 @@ async function handleTransfermarkt(request, env, ctx) {
   return res;
 }
 
+/* ---------- Schnelle Namensvorschläge (Wikidata) ----------
+   Die Wikidata-Suche antwortet in ~0,1–0,3 s – viel schneller als Transfermarkt-Seiten.
+   Gefiltert auf Fußballspieler; Daten sind CC0. */
+
+const FOOTBALL_DESC_RE = /(fu(ß|ss)ball|football|soccer|calcio|fútbol|futebol|voetbal).*(spieler|torh(ü|ue)ter|trainer|player|keeper|goalkeeper|coach|calciatore|jugador|jogador)|footballer|calciatore|futbolista|futebolista|voetballer/i;
+
+async function handleNames(request, ctx) {
+  const url = new URL(request.url);
+  const q = (url.searchParams.get("q") || "").trim().slice(0, 60);
+  if (q.length < 2) return jsonResponse([]);
+
+  const cacheKey = new Request(`${url.origin}/api/names/${CACHE_VERSION}?q=${encodeURIComponent(q.toLowerCase())}`, { method: "GET" });
+  const cache = caches.default;
+  const cached = await cache.match(cacheKey);
+  if (cached) return cached;
+
+  const api = `https://www.wikidata.org/w/api.php?action=wbsearchentities&format=json&type=item&limit=40&language=de&uselang=de&search=${encodeURIComponent(q)}`;
+  let data;
+  try {
+    const res = await fetch(api, {
+      headers: { "User-Agent": "BundesligaTicTacToe/2.0 (Cloudflare Worker; name suggestions)", "Accept": "application/json" },
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!res.ok) throw new Error(`wikidata ${res.status}`);
+    data = await res.json();
+  } catch (err) {
+    return jsonResponse({ error: String(err && err.message || err) }, 502);
+  }
+
+  const seen = new Set();
+  const names = [];
+  for (const hit of data.search || []) {
+    const name = hit.label || (hit.display && hit.display.label && hit.display.label.value) || "";
+    const desc = hit.description || (hit.display && hit.display.description && hit.display.description.value) || "";
+    if (!name || !FOOTBALL_DESC_RE.test(desc)) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    names.push({ name, desc });
+    if (names.length >= 10) break;
+  }
+  const res = jsonResponse(names, 200, { "Cache-Control": "public, max-age=604800" });
+  ctx.waitUntil(cache.put(cacheKey, res.clone()));
+  return res;
+}
+
+function jsonResponse(data, status = 200, extra = {}) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json; charset=utf-8", ...corsHeaders(), ...extra },
+  });
+}
+
 /* ---------- Bild-Proxy (Vereinslogos, Spielerfotos) ----------
    Bilder werden über unseren Server geladen, damit Wikimedia/Transfermarkt nie
    die IP-Adresse der Spieler sehen (Datenschutz) – und sie liegen danach im Edge-Cache. */
@@ -316,6 +369,7 @@ export default {
     if (url.pathname === "/api/tm") return handleTransfermarkt(request, env, ctx);
     if (url.pathname === "/api/tm-diagnose") return handleDiagnose(request, env);
     if (url.pathname === "/api/img") return handleImage(request, ctx);
+    if (url.pathname === "/api/names") return handleNames(request, ctx);
     if (url.pathname === "/api/health") return textResponse("ok", 200);
     return env.ASSETS.fetch(request);
   },

@@ -727,50 +727,110 @@ function prefetchCareer(candidate){
   fetchTransfermarktTransfers(candidate.id, candidate.slug || "").catch(() => prefetchedIds.delete(candidate.id));
 }
 
+/* Schnelle Namen von Wikidata (über /api/names, ~0,1–0,3 s). Ohne Worker einfach leer. */
+const nameCache = new Map();
+async function fetchFastNames(query){
+  const key = query.toLowerCase();
+  if (nameCache.has(key)) return nameCache.get(key);
+  const job = (async () => {
+    if (!tmProxyAvailable) return [];
+    const res = await fetchWithTimeout(`/api/names?q=${encodeURIComponent(query)}`, 5000);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  })();
+  nameCache.set(key, job);
+  job.catch(() => nameCache.delete(key));
+  return job;
+}
+
+// Vorschläge aus beiden Quellen zusammenführen: Wikidata-Namen erscheinen sofort,
+// Transfermarkt ergänzt später die Spieler-ID (für die Prüfung) und weitere Treffer.
+function mergeSuggestions(query, fastNames, tmCandidates){
+  const byName = new Map();
+  for (const c of tmCandidates) {
+    const key = normalizeName(c.name);
+    if (!byName.has(key)) byName.set(key, { name: c.name, id: c.id, slug: c.slug, desc: "" });
+  }
+  for (const n of fastNames) {
+    const key = normalizeName(n.name);
+    const existing = byName.get(key);
+    if (existing) { existing.desc = existing.desc || n.desc; existing.name = n.name; }
+    else byName.set(key, { name: n.name, id: null, slug: "", desc: n.desc });
+  }
+  return [...byName.values()]
+    .filter(c => !usedPlayers.some(p => p.norm === normalizeName(c.name)))
+    .sort((a, b) => scorePlayerCandidate(b, query) - scorePlayerCandidate(a, query) || Number(!!b.id) - Number(!!a.id))
+    .slice(0, 7);
+}
+
+function renderSuggestions(list){
+  const prevActive = activeSuggestionIndex;
+  list.innerHTML = "";
+  suggestionCandidates.forEach((c, i) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "player-suggestion";
+    row.id = `player-suggestion-${i}`;
+    row.setAttribute("role", "option");
+    row.dataset.index = String(i);
+    const title = document.createElement("strong");
+    title.textContent = c.name;
+    const meta = document.createElement("span");
+    meta.textContent = c.desc ? c.desc.charAt(0).toUpperCase() + c.desc.slice(1) : "Transfermarkt";
+    row.append(title, meta);
+    row.addEventListener("click", () => selectPlayerSuggestion(i));
+    const warm = () => (c.id ? prefetchCareer(c) : warmUpCandidate(c));
+    row.addEventListener("pointerenter", warm);
+    row.addEventListener("touchstart", warm, { passive: true });
+    list.appendChild(row);
+  });
+  activeSuggestionIndex = prevActive < suggestionCandidates.length ? prevActive : -1;
+  renderSuggestionActive();
+  setSuggestionsVisible(suggestionCandidates.length > 0);
+}
+
+// Für den besten Namensvorschlag schon mal Transfermarkt-ID und Karriere holen, damit
+// die Prüfung nach dem Antippen sofort fertig ist.
+const warmedNames = new Set();
+function warmUpCandidate(c){
+  if (!c || c.id || warmedNames.has(normalizeName(c.name))) return;
+  warmedNames.add(normalizeName(c.name));
+  fetchTmText(tmSearchPath(c.name), 22000).then(md => {
+    const best = extractPlayerCandidates(md, c.name).sort((a, b) => scorePlayerCandidate(b, c.name) - scorePlayerCandidate(a, c.name))[0];
+    if (!best || scorePlayerCandidate(best, c.name) < 700) return;
+    c.id = best.id; c.slug = best.slug;
+    prefetchCareer(best);
+  }).catch(() => warmedNames.delete(normalizeName(c.name)));
+}
+
 async function fetchNameSuggestions(query){
   const list = document.getElementById("playerSuggestionList");
   if (!list) return;
   if (query.length < 2) { clearSuggestions(); return; }
   const token = ++suggestToken;
   setSearchBusy(true);
-  try {
-    const md = await fetchTmText(tmSearchPath(query), 20000);
-    if (token !== suggestToken) return; // veraltete Antwort – neuere Eingabe läuft bereits
+  let fastNames = [], tmCandidates = [];
+  const stillCurrent = () => {
     const input = document.getElementById("playerInput");
-    if (!input || input.value.trim() !== query || !pending) return;
-    suggestionCandidates = extractPlayerCandidates(md, query)
-      .filter(c => !usedPlayers.some(p => p.norm === normalizeName(c.name)))
-      .sort((a,b) => scorePlayerCandidate(b, query) - scorePlayerCandidate(a, query))
-      .slice(0, 7);
-    activeSuggestionIndex = -1;
-    list.innerHTML = "";
-    suggestionCandidates.forEach((c, i) => {
-      const row = document.createElement("button");
-      row.type = "button";
-      row.className = "player-suggestion";
-      row.id = `player-suggestion-${i}`;
-      row.setAttribute("role", "option");
-      row.dataset.index = String(i);
-      const title = document.createElement("strong");
-      title.textContent = c.name;
-      const meta = document.createElement("span");
-      meta.textContent = "Transfermarkt · Prüfung startet automatisch";
-      row.append(title, meta);
-      row.addEventListener("click", () => selectPlayerSuggestion(i));
-      row.addEventListener("pointerenter", () => prefetchCareer(c));
-      row.addEventListener("touchstart", () => prefetchCareer(c), { passive: true });
-      list.appendChild(row);
-    });
-    setSuggestionsVisible(suggestionCandidates.length > 0);
-    // Vorladen: Karrieredaten des besten Treffers schon holen, während der Nutzer
-    // noch schaut – beim Antippen ist die Prüfung dann praktisch sofort fertig.
+    return token === suggestToken && pending && input && input.value.trim() === query;
+  };
+  const update = () => {
+    if (!stillCurrent()) return;
+    suggestionCandidates = mergeSuggestions(query, fastNames, tmCandidates);
+    renderSuggestions(list);
     const top = suggestionCandidates[0];
-    if (top && scorePlayerCandidate(top, query) >= 700) prefetchCareer(top);
-  } catch (err) {
-    // Komfortfunktion – ein Fehlschlag blockiert nie die manuelle Eingabe.
-  } finally {
-    if (token === suggestToken) setSearchBusy(false);
-  }
+    if (top && scorePlayerCandidate(top, query) >= 700) { if (top.id) prefetchCareer(top); else warmUpCandidate(top); }
+  };
+  // Komfortfunktion – Fehlschläge blockieren nie die manuelle Eingabe.
+  const fast = fetchFastNames(query).then(n => { fastNames = n; update(); }).catch(() => {});
+  // Transfermarkt erst ab 4 Zeichen – für kurze Eingaben reicht Wikidata, und so
+  // entstehen beim Tippen nicht unnötig viele langsame Abfragen.
+  const slow = (query.length < 4 ? Promise.reject(new Error("kurz")) : fetchTmText(tmSearchPath(query), 20000))
+    .then(md => { tmCandidates = extractPlayerCandidates(md, query); update(); })
+    .catch(() => {});
+  await Promise.allSettled([fast, slow]);
+  if (token === suggestToken) setSearchBusy(false);
 }
 
 let autoCheckToken = 0;
@@ -1536,7 +1596,7 @@ function init(){
     pending && (pending.candidateName = null, pending.candidateId = null, pending.candidatePhoto = null);
     clearTimeout(suggestDebounceTimer);
     if (q.length < 2) { clearSuggestions(); return; }
-    suggestDebounceTimer = setTimeout(() => fetchNameSuggestions(q), 220);
+    suggestDebounceTimer = setTimeout(() => fetchNameSuggestions(q), 150);
   });
 
   document.getElementById("nameModal").addEventListener("click", (e) => {

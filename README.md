@@ -17,7 +17,7 @@ wrangler.jsonc   Cloudflare-Konfiguration
   Transfermarkt wird direkt abgefragt; antwortet es nicht innerhalb von 1,2 s, läuft r.jina.ai parallel. Diagnose: `/api/tm-diagnose?q=Name`.
 - `/api/names?q=…` liefert sofortige Namensvorschläge über die Wikidata-Suche (gefiltert auf Fußballspieler, 7 Tage gecacht); Transfermarkt ergänzt im Hintergrund die IDs für die Prüfung.
 - `/api/img?src=…` lädt Vereinslogos (Wikimedia) und Spielerfotos (Transfermarkt) serverseitig und cached sie 30 Tage – Nutzer-IPs gehen nicht an Dritte. Die Content-Security-Policy in `public/_headers` erzwingt, dass der Browser nur mit der eigenen Domain spricht.
-- Die Schrift Oswald liegt lokal in `public/fonts/` (SIL Open Font License).
+- Design im iOS-Stil („Liquid Glass“): iOS-Systemfarben, Systemschrift (SF Pro auf Apple-Geräten), schwebende Glas-Toolbar.
 - `public/rechtliches.html` enthält Impressum und Datenschutzerklärung – **die Platzhalter `[…]` im Impressum vor dem Livegang ausfüllen.**
 - Ohne Worker (z. B. lokal per `file://` oder GitHub Pages) fällt die Seite automatisch auf direkte r.jina.ai-Abfragen zurück.
 

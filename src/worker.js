@@ -15,10 +15,15 @@
 
 const TM_ORIGIN = "https://www.transfermarkt.de";
 const READER = "https://r.jina.ai/";
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3"; // erhöht: verwirft evtl. leer gecachte Suchergebnisse aus v2
 
-const DIRECT_TIMEOUT_MS = 5000;
-const READER_TIMEOUT_MS = 12000;
+const DIRECT_TIMEOUT_MS = 4000;
+const READER_TIMEOUT_MS = 15000;
+// Antwortet Transfermarkt nicht schnell, wird r.jina.ai parallel gestartet – wer zuerst
+// ein brauchbares Ergebnis liefert, gewinnt. So addieren sich die Wartezeiten nie.
+const HEDGE_MS = 1200;
+
+const PLAYER_LINK_RE = /\/profil\/spieler\/\d+/;
 
 const BROWSER_HEADERS = {
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36",
@@ -162,10 +167,14 @@ async function fetchDirect(route, path) {
   // Captcha-/Blockseiten erkennen: echte TM-Seiten sind groß und enthalten Spielerlinks.
   if (html.length < 5000 || !/transfermarkt/i.test(html)) throw new Error("direct: unerwartete Seite");
   const md = htmlToMarkdown(html);
-  if (route.kind === "search" && !/\/profil\/spieler\/\d+/.test(md) && !/keine\s+(treffer|ergebnisse)|0\s+treffer/i.test(md)) {
-    throw new Error("direct: keine Spielerliste");
+  // Nur echte Spielerlisten akzeptieren. (Früher reichte der Text „0 Treffer“ – der steht
+  // aber auch in „10 Treffer“, wodurch leere Seiten durchrutschten und gecacht wurden.)
+  if (route.kind === "search" && !PLAYER_LINK_RE.test(md)) throw new Error("direct: keine Spielerliste");
+  if (route.kind === "page") {
+    const id = (path.match(/\/spieler\/(\d+)/) || [])[1];
+    // Navigationsmenüs enthalten immer Vereinslinks – deshalb zusätzlich die Spieler-ID verlangen.
+    if (!/\/verein\/\d+/.test(md) || !md.includes(`/spieler/${id}`)) throw new Error("direct: kein Spielerprofil");
   }
-  if (route.kind === "page" && !/\/verein\/\d+/.test(md)) throw new Error("direct: keine Vereinslinks");
   return md;
 }
 
@@ -178,6 +187,43 @@ async function fetchReader(route, path, env) {
   });
   if (!res.ok) throw new Error(`reader ${res.status}`);
   return res.text();
+}
+
+async function fetchBest(route, path, env) {
+  const direct = fetchDirect(route, path).then(body => ({ body, source: "direct" }));
+  let readerJob = null;
+  const startReader = () => (readerJob ??= fetchReader(route, path, env).then(body => ({ body, source: "reader" })));
+  const reader = new Promise((resolve, reject) => {
+    const go = () => startReader().then(resolve, reject);
+    const timer = setTimeout(go, HEDGE_MS);
+    direct.then(() => clearTimeout(timer), () => { clearTimeout(timer); go(); });
+  });
+  try {
+    return await Promise.any([direct, reader]);
+  } catch (err) {
+    const reasons = (err.errors || [err]).map(e => e && e.message).join("; ");
+    throw new Error(reasons);
+  }
+}
+
+/* Diagnose: /api/tm-diagnose?q=Name – zeigt, welche Quelle wie schnell was liefert. */
+async function handleDiagnose(request, env) {
+  const q = (new URL(request.url).searchParams.get("q") || "Goretzka").slice(0, 80);
+  const route = ROUTES[0];
+  const path = `/schnellsuche/ergebnis/schnellsuche?query=${encodeURIComponent(q)}`;
+  const probe = async (fn) => {
+    const t0 = Date.now();
+    try {
+      const body = await fn();
+      return { ok: true, ms: Date.now() - t0, length: body.length, playerLinks: (body.match(/\/profil\/spieler\/\d+/g) || []).length, sample: body.slice(0, 300) };
+    } catch (err) {
+      return { ok: false, ms: Date.now() - t0, error: String(err && err.message || err) };
+    }
+  };
+  const [direct, reader] = await Promise.all([probe(() => fetchDirect(route, path)), probe(() => fetchReader(route, path, env))]);
+  return new Response(JSON.stringify({ query: q, direct, reader }, null, 2), {
+    headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" },
+  });
 }
 
 async function handleTransfermarkt(request, env, ctx) {
@@ -198,20 +244,15 @@ async function handleTransfermarkt(request, env, ctx) {
     return res;
   }
 
-  let body = "";
-  let source = "direct";
+  let body, source;
   try {
-    body = await fetchDirect(route, path);
-  } catch (directErr) {
-    source = "reader";
-    try {
-      body = await fetchReader(route, path, env);
-    } catch (readerErr) {
-      return textResponse(`Transfermarkt nicht erreichbar (${directErr.message}; ${readerErr.message})`, 502);
-    }
+    ({ body, source } = await fetchBest(route, path, env));
+  } catch (err) {
+    return textResponse(`Transfermarkt nicht erreichbar (${err.message})`, 502);
   }
 
-  const cacheable = body.length > 300;
+  // Suchergebnisse ohne Spieler nicht cachen – sonst bleibt ein Aussetzer stundenlang hängen.
+  const cacheable = body.length > 300 && (route.kind !== "search" || PLAYER_LINK_RE.test(body));
   const res = textResponse(body, 200, {
     "Cache-Control": cacheable ? `public, max-age=${route.ttl}` : "no-store",
     "X-Cache": "MISS",
@@ -273,6 +314,7 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.pathname === "/api/tm") return handleTransfermarkt(request, env, ctx);
+    if (url.pathname === "/api/tm-diagnose") return handleDiagnose(request, env);
     if (url.pathname === "/api/img") return handleImage(request, ctx);
     if (url.pathname === "/api/health") return textResponse("ok", 200);
     return env.ASSETS.fetch(request);

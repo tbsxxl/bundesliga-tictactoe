@@ -422,7 +422,7 @@ function extractTransfermarktProfileUrls(markdown) {
 }
 
 async function searchTransfermarktPlayer(name) {
-  const md = await fetchTmText(tmSearchPath(name), 14000);
+  const md = await fetchTmText(tmSearchPath(name), 22000);
   const candidates = extractPlayerCandidates(md, name);
   if (!candidates.length) {
     // Fallback: search page can sometimes be returned with links encoded differently.
@@ -445,7 +445,7 @@ async function fetchTransfermarktTransfers(playerId, slug = "") {
   // da drei serielle Requests sich sonst zu bis zu ~30s aufaddieren können.
   const prefix = slug ? `/${slug}` : "";
   const paths = ["transfers", "rueckennummern", "profil"].map(kind => `${prefix}/${kind}/spieler/${playerId}`);
-  const results = await Promise.allSettled(paths.map(path => fetchTmText(path, 14000)));
+  const results = await Promise.allSettled(paths.map(path => fetchTmText(path, 22000)));
   const chunks = [];
   results.forEach((r, i) => {
     if (r.status !== "fulfilled") return;
@@ -734,7 +734,7 @@ async function fetchNameSuggestions(query){
   const token = ++suggestToken;
   setSearchBusy(true);
   try {
-    const md = await fetchTmText(tmSearchPath(query), 12000);
+    const md = await fetchTmText(tmSearchPath(query), 20000);
     if (token !== suggestToken) return; // veraltete Antwort – neuere Eingabe läuft bereits
     const input = document.getElementById("playerInput");
     if (!input || input.value.trim() !== query || !pending) return;

@@ -16,5 +16,5 @@
   Cache-Control: public, max-age=0, must-revalidate
 
 /icons/*
-  Cache-Control: public, max-age=2592000
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
 

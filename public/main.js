@@ -248,19 +248,25 @@ function directReaderUrl(path){
   return `https://r.jina.ai/${scheme}://www.transfermarkt.de${path}`;
 }
 
+// Liefert unser Server wiederholt nichts (z. B. weil Transfermarkt/r.jina.ai Anfragen
+// aus dem Cloudflare-Netz blocken), geht die App für den Rest der Sitzung direkt
+// aus dem Browser zu r.jina.ai – statt bei jeder Anfrage erst auf den Server zu warten.
+let tmProxyFailures = 0;
+const TM_PROXY_MAX_FAILURES = 2;
+
 async function fetchTmText(path, ms){
   if (tmResponseCache.has(path)) return tmResponseCache.get(path);
   const job = (async () => {
-    if (tmProxyAvailable) {
+    if (tmProxyAvailable && tmProxyFailures < TM_PROXY_MAX_FAILURES) {
       try {
-        const res = await fetchWithTimeout(TM_PROXY + encodeURIComponent(path), ms);
-        if (res.ok) return await res.text();
+        // Server bekommt höchstens 60 % der Zeit, damit für den direkten Weg genug bleibt.
+        const res = await fetchWithTimeout(TM_PROXY + encodeURIComponent(path), Math.round(ms * 0.6));
+        if (res.ok) { tmProxyFailures = 0; return await res.text(); }
         // 404 = kein Worker vorhanden (z. B. GitHub Pages) -> künftig direkt gehen.
-        // Andere Fehler (Rate-Limit, Upstream down): einmal direkt versuchen.
         if (res.status === 404 || res.status === 405) tmProxyAvailable = false;
+        else tmProxyFailures++;
       } catch (err) {
-        // Timeout: nicht noch einmal genauso lange direkt warten.
-        if (err && err.name === "AbortError") throw err;
+        tmProxyFailures++;
       }
     }
     const res = await fetchWithTimeout(directReaderUrl(path), ms, { "x-timeout": "6" });

@@ -6,11 +6,10 @@
   <title>Bundesliga Tic Tac Toe</title>
   <meta name="description" content="Fußball-Quiz für zwei: Nenne Spieler, die für beide Bundesliga-Vereine gespielt haben – und hol dir drei in einer Reihe." />
   <meta name="theme-color" content="#f3f3f5" />
-  <script>
-    // Theme vor dem ersten Rendern setzen (kein Aufblitzen). Standard: hell.
-    try { if ((JSON.parse(localStorage.getItem("bttt_prefs_v1") || "{}") || {}).theme === "dark") document.documentElement.dataset.theme = "dark"; } catch (e) {}
-  </script>
+  <script src="/theme.js"></script>
+  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="TicTacToe" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta property="og:title" content="Bundesliga Tic Tac Toe" />
   <meta property="og:description" content="Wer hat für beide Vereine gespielt? Das Fußball-Quiz für zwei." />
@@ -20,11 +19,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180.png" />
   <link rel="manifest" href="/manifest.webmanifest" />
 
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="preconnect" href="https://upload.wikimedia.org" crossorigin />
-  <link rel="preconnect" href="https://commons.wikimedia.org" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&display=swap" rel="stylesheet" />
+  <link rel="preload" href="/fonts/oswald-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="/style.css" />
 
   <script src="/logos.js" defer></script>
@@ -41,18 +36,18 @@
     </div>
 
     <div class="topbar__right">
-    <button type="button" id="themeBtn" class="theme-btn" aria-label="Dark Mode einschalten" aria-pressed="false">🌙</button>
-    <div class="scoreboard" id="scoreboard" aria-label="Spielstand">
-      <div class="scoreboard__side scoreboard__side--x is-turn" id="sideX">
-        <span class="scoreboard__mark">X</span>
-        <span class="scoreboard__score" id="scoreX">0</span>
+      <button type="button" id="themeBtn" class="theme-btn" aria-label="Dark Mode einschalten" aria-pressed="false">🌙</button>
+      <div class="scoreboard" id="scoreboard" aria-label="Spielstand">
+        <div class="scoreboard__side scoreboard__side--x is-turn" id="sideX">
+          <span class="scoreboard__mark">X</span>
+          <span class="scoreboard__score" id="scoreX">0</span>
+        </div>
+        <span class="scoreboard__sep" aria-hidden="true">:</span>
+        <div class="scoreboard__side scoreboard__side--o" id="sideO">
+          <span class="scoreboard__score" id="scoreO">0</span>
+          <span class="scoreboard__mark">O</span>
+        </div>
       </div>
-      <span class="scoreboard__sep" aria-hidden="true">:</span>
-      <div class="scoreboard__side scoreboard__side--o" id="sideO">
-        <span class="scoreboard__score" id="scoreO">0</span>
-        <span class="scoreboard__mark">O</span>
-      </div>
-    </div>
     </div>
   </header>
 
@@ -108,11 +103,17 @@
       <span class="used-players__label">Genannt</span>
       <span id="usedPlayersList" class="used-players__list">–</span>
     </section>
+
+    <footer class="site-footer">
+      <a href="/rechtliches.html#impressum">Impressum</a>
+      <span aria-hidden="true">·</span>
+      <a href="/rechtliches.html#datenschutz">Datenschutz</a>
+    </footer>
   </main>
 
   <div id="rulesModal" class="modal-overlay" aria-hidden="true">
     <div class="modal-card rules-card" role="dialog" aria-modal="true" aria-labelledby="rulesTitle">
-      <h2 id="rulesTitle" class="modal-title">Spielregeln</h2>
+      <h2 id="rulesTitle" class="modal-title">Regeln &amp; Einstellungen</h2>
       <ul class="rules-list">
         <li>Tippe ein Feld an und nenne einen Spieler, der für <strong>beide</strong> Vereine (Zeile &amp; Spalte) im Profibereich gespielt hat.</li>
         <li>Jeder Spieler darf pro Runde nur einmal genannt werden.</li>
@@ -121,6 +122,12 @@
         <li><strong>Direkt bestätigen</strong> übernimmt einen Treffer ohne Fact-Check – wenn ihr euch einig seid.</li>
         <li>Wer zuerst eine komplette Reihe, Spalte oder Diagonale hat, gewinnt. Ist das Feld voll, endet die Runde unentschieden.</li>
       </ul>
+      <h3 class="settings-title" id="themeLabel">Darstellung</h3>
+      <div class="segmented segmented--full" role="radiogroup" aria-labelledby="themeLabel">
+        <button class="segmented__btn" type="button" role="radio" data-theme-option="light" aria-checked="true">Hell</button>
+        <button class="segmented__btn" type="button" role="radio" data-theme-option="dark" aria-checked="false">Dunkel</button>
+        <button class="segmented__btn" type="button" role="radio" data-theme-option="system" aria-checked="false">System</button>
+      </div>
       <div class="rules-actions">
         <button type="button" class="btn btn-secondary" id="resetScoreBtn">Punktestand zurücksetzen</button>
         <button type="button" class="btn btn-primary" id="rulesClose">Verstanden</button>
@@ -160,8 +167,6 @@
         🔎 „<span id="tmLinkName">Name</span>“ auf Transfermarkt nachschlagen
       </a>
 
-      <button type="button" id="debugToggle" class="modal-debug-toggle">🐞 Rohdaten anzeigen (zum Debuggen kopieren)</button>
-      <textarea id="debugRaw" class="modal-debug-raw" readonly rows="6"></textarea>
 
       <label id="manualConfirmRow" class="switch-row modal-manual">
         <span class="switch-row__label">Laut Historie oben bestätigen</span>
@@ -177,6 +182,17 @@
         <button type="button" class="btn btn-secondary" id="modalDirect">Direkt bestätigen</button>
         <button type="button" class="btn btn-secondary" id="modalCheck">Prüfen</button>
         <button type="button" class="btn btn-primary" id="modalConfirm" disabled>Feld setzen</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="confirmModal" class="modal-overlay modal-overlay--center" aria-hidden="true">
+    <div class="modal-card confirm-card" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmText">
+      <h2 id="confirmTitle" class="modal-title"></h2>
+      <p id="confirmText" class="confirm-text"></p>
+      <div class="confirm-actions">
+        <button type="button" class="btn btn-secondary" id="confirmCancel">Abbrechen</button>
+        <button type="button" class="btn btn-primary" id="confirmOk">OK</button>
       </div>
     </div>
   </div>

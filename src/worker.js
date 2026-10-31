@@ -221,10 +221,59 @@ async function handleTransfermarkt(request, env, ctx) {
   return res;
 }
 
+/* ---------- Bild-Proxy (Vereinslogos, Spielerfotos) ----------
+   Bilder werden über unseren Server geladen, damit Wikimedia/Transfermarkt nie
+   die IP-Adresse der Spieler sehen (Datenschutz) – und sie liegen danach im Edge-Cache. */
+
+const IMAGE_HOSTS = new Set(["upload.wikimedia.org", "commons.wikimedia.org", "img.a.transfermarkt.technology"]);
+const IMAGE_TTL = 60 * 60 * 24 * 30;
+
+async function handleImage(request, ctx) {
+  if (request.method !== "GET") return textResponse("Method not allowed", 405);
+  const url = new URL(request.url);
+  let target;
+  try { target = new URL(url.searchParams.get("src") || ""); } catch { return textResponse("Ungültige URL", 400); }
+  if (target.protocol !== "https:" || !IMAGE_HOSTS.has(target.hostname)) return textResponse("Host nicht erlaubt", 400);
+
+  const cacheKey = new Request(`${url.origin}/api/img/${CACHE_VERSION}?src=${encodeURIComponent(target.href)}`, { method: "GET" });
+  const cache = caches.default;
+  const cached = await cache.match(cacheKey);
+  if (cached) return cached;
+
+  let upstream;
+  try {
+    upstream = await fetch(target.href, {
+      // Wikimedia verlangt einen aussagekräftigen User-Agent.
+      headers: { "User-Agent": "BundesligaTicTacToe/2.0 (Cloudflare Worker; image cache)", "Accept": "image/*" },
+      redirect: "follow",
+      signal: AbortSignal.timeout(8000),
+    });
+  } catch {
+    return textResponse("Bild nicht erreichbar", 504);
+  }
+  const type = upstream.headers.get("Content-Type") || "";
+  if (!upstream.ok || !/^image\//i.test(type)) return textResponse("Kein Bild", 502);
+  // Final redirect target must also be an allowed host.
+  if (upstream.url && !IMAGE_HOSTS.has(new URL(upstream.url).hostname)) return textResponse("Host nicht erlaubt", 400);
+
+  const res = new Response(upstream.body, {
+    headers: {
+      "Content-Type": type,
+      "Cache-Control": `public, max-age=${IMAGE_TTL}, immutable`,
+      // SVGs dürfen auf unserer Domain niemals Skripte ausführen.
+      "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
+  ctx.waitUntil(cache.put(cacheKey, res.clone()));
+  return res;
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.pathname === "/api/tm") return handleTransfermarkt(request, env, ctx);
+    if (url.pathname === "/api/img") return handleImage(request, ctx);
     if (url.pathname === "/api/health") return textResponse("ok", 200);
     return env.ASSETS.fetch(request);
   },

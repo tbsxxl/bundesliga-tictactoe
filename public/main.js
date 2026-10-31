@@ -273,6 +273,18 @@ async function fetchTmText(path, ms){
   return job;
 }
 
+/* Logos und Spielerfotos laufen über /api/img, damit Wikimedia/Transfermarkt nicht die
+   IP-Adresse der Spieler bekommen. Ohne Worker (lokal/Static-Hosting) direkt laden. */
+function setProxiedImage(img, url, onFinalError){
+  const direct = url;
+  let triedDirect = !tmProxyAvailable;
+  img.src = triedDirect ? direct : `/api/img?src=${encodeURIComponent(direct)}`;
+  img.addEventListener("error", () => {
+    if (!triedDirect) { triedDirect = true; img.src = direct; return; }
+    if (onFinalError) onFinalError();
+  });
+}
+
 function tmSearchPath(query){
   return `/schnellsuche/ergebnis/schnellsuche?query=${encodeURIComponent(query)}`;
 }
@@ -532,34 +544,6 @@ function extractTransferHistory(markdown) {
   return extractCareerClubs(markdown);
 }
 
-// Kompakte Diagnose statt riesigem Rohtext-Dump: zählt, ob typische Transfer-Stichwörter
-// überhaupt IRGENDWO im Dokument vorkommen. So lässt sich schnell klären, ob die Transfer-
-// tabelle im von r.jina.ai eingefangenen HTML überhaupt vorhanden ist (z. B. falls sie bei
-// Transfermarkt per JavaScript nachgeladen wird und im Reader-Ergebnis fehlt).
-function buildDiagnosticsSummary(markdown, teamA, teamB){
-  if (!markdown) return "Keine Daten erhalten.";
-  const lines = [`Gesamtlänge: ${markdown.length} Zeichen`, `Karrierequellen: Transferhistorie + Rückennummern-Historie + Profil`];
-  const keywords = ["Saison", "Ablöse", "ablösefrei", "Vereinswechsel", "Leihe", "Transferhistorie", "Datum"];
-  keywords.forEach(k => {
-    const idx = markdown.indexOf(k);
-    lines.push(`enthält "${k}": ${idx === -1 ? "nein" : "ja (Position " + idx + ")"}`);
-  });
-  lines.push(`enthält "${teamA}"-Stichwort: ${textContainsTeam(markdown, teamA)}`);
-  lines.push(`enthält "${teamB}"-Stichwort: ${textContainsTeam(markdown, teamB)}`);
-
-  const idx = markdown.search(/Saison|Ablöse|Vereinswechsel|Transferhistorie/i);
-  lines.push("---");
-  if (idx !== -1) {
-    lines.push("Ausschnitt ab erstem Treffer:");
-    lines.push(markdown.slice(Math.max(0, idx - 100), idx + 1500));
-  } else {
-    lines.push("Kein einziger Transfer-Marker im gesamten Dokument gefunden.");
-    lines.push("Letzte 1000 Zeichen (oft das Seitenende, zur Kontrolle):");
-    lines.push(markdown.slice(-1000));
-  }
-  return lines.join("\n");
-}
-
 // Rückgabe: { status: 'valid' | 'checked_no_match' | 'not_found' | 'error', id?, displayName?, matchedTeams?, transfers? }
 // Portraitfotos stehen als ganz normale Bild-URL im Markdown der Profilseite
 // (z. B. https://img.a.transfermarkt.technology/portrait/big/{id}-{hash}.jpg?lm=...).
@@ -607,8 +591,6 @@ async function tryAutoCheck(name, teamA, teamB){
     if (!best || !best.id) return { status: "not_found" };
 
     const transfersMd = await fetchTransfermarktTransfers(best.id, best.slug || "");
-    const diagnostics = buildDiagnosticsSummary(transfersMd, teamA, teamB);
-    console.log(`[TM-Check] Spieler-ID ${best.id}\n${diagnostics}`);
 
     const careerClubs = extractCareerClubs(transfersMd);
     const careerText = careerClubs.join(" | ");
@@ -663,11 +645,10 @@ async function tryAutoCheck(name, teamA, teamB){
 
     // Show all identifiable clubs in the player's Transfermarkt career.
     if (hasA && hasB) {
-      return { status: "valid", id: best.id, displayName: best.name || name, hasA: true, hasB: true, matchedTeams: [teamA, teamB], clubs: careerClubs, transfers: careerClubs, raw: diagnostics, photoUrl };
+      return { status: "valid", id: best.id, displayName: best.name || name, hasA: true, hasB: true, matchedTeams: [teamA, teamB], clubs: careerClubs, transfers: careerClubs, photoUrl };
     }
-    return { status: "checked_no_match", id: best.id, displayName: best.name || name, hasA, hasB, clubs: careerClubs, transfers: careerClubs, raw: diagnostics, photoUrl };
+    return { status: "checked_no_match", id: best.id, displayName: best.name || name, hasA, hasB, clubs: careerClubs, transfers: careerClubs, photoUrl };
   } catch (err) {
-    console.warn("Transfermarkt-Autoprüfung fehlgeschlagen:", err);
     return { status: "error" };
   }
 }
@@ -835,22 +816,6 @@ function clearSuggestions(){
   activeSuggestionIndex = -1;
 }
 
-function showDebugRaw(text){
-  const toggle = document.getElementById("debugToggle");
-  const box = document.getElementById("debugRaw");
-  if (!toggle || !box) return;
-  if (!text) {
-    toggle.classList.remove("is-visible");
-    box.classList.remove("is-visible");
-    box.value = "";
-    return;
-  }
-  box.value = text;
-  toggle.classList.add("is-visible");
-  toggle.textContent = "🐞 Rohdaten anzeigen (zum Debuggen kopieren)";
-  box.classList.remove("is-visible");
-}
-
 function updateUsedPlayersDisplay(){
   const el = document.getElementById("usedPlayersList");
   if (!el) return;
@@ -909,7 +874,6 @@ function openNamePrompt(r, c, span, teamA, teamB){
   showManualConfirm(false);
   showTransfermarktLink(false);
   showTransferHistory([]);
-  showDebugRaw(null);
   clearSuggestions();
   const summary = document.getElementById("matchSummary");
   if (summary) summary.innerHTML = "";
@@ -1007,7 +971,6 @@ async function checkAnswer(){
     showTransfermarktLink(true, result.displayName, result.id);
     showTransferHistory(result.transfers, true, pending.teamA, pending.teamB);
     renderMatchSummary(result, pending.teamA, pending.teamB);
-    showDebugRaw(result.raw);
     pending.candidateName = result.displayName;
     pending.candidatePhoto = result.photoUrl || null;
     confirmBtn.disabled = false;
@@ -1017,7 +980,6 @@ async function checkAnswer(){
     showTransfermarktLink(true, result.displayName, result.id);
     showTransferHistory(result.transfers, true, pending.teamA, pending.teamB);
     renderMatchSummary(result, pending.teamA, pending.teamB);
-    showDebugRaw(result.raw);
     pending.candidateName = result.displayName;
     pending.candidatePhoto = result.photoUrl || null;
     confirmBtn.disabled = true;
@@ -1028,7 +990,6 @@ async function checkAnswer(){
     showManualConfirm(true);
     showTransfermarktLink(true, raw);
     showTransferHistory([]);
-    showDebugRaw(null);
     pending.candidateName = raw;
     pending.candidatePhoto = null;
     confirmBtn.disabled = true;
@@ -1043,11 +1004,10 @@ function renderCellMark(span, player, photoUrl, playerName){
   if (photoUrl) {
     span.classList.add("has-photo");
     const img = document.createElement("img");
-    img.src = photoUrl;
     img.alt = "";
     img.className = "cell-photo";
     // Falls das Bild nicht lädt (z. B. tote URL): sauber auf X/O zurückfallen.
-    img.addEventListener("error", () => {
+    setProxiedImage(img, photoUrl, () => {
       span.classList.remove("has-photo");
       span.innerHTML = "";
       span.textContent = player;
@@ -1307,13 +1267,12 @@ function createTeamCell(name) {
 
   if (data && data.logo) {
     const img = document.createElement("img");
-    img.src = data.logo;
     img.alt = "";
     img.className = "team-img";
     img.decoding = "async";
     img.referrerPolicy = "no-referrer";
-    // Falls Wikimedia nicht lädt: Kürzel statt kaputtem Bild anzeigen.
-    img.addEventListener("error", () => {
+    // Falls das Logo nicht lädt: Kürzel statt kaputtem Bild anzeigen.
+    setProxiedImage(img, data.logo, () => {
       img.remove();
       const fallback = document.createElement("strong");
       fallback.className = "team-fallback";
@@ -1385,6 +1344,42 @@ function setSize(size){
   generateBoard(true);
 }
 
+/* Eigener Bestätigungsdialog statt window.confirm() – sieht in der App nativ aus
+   und lässt sich per Tastatur/VoiceOver bedienen. */
+function askConfirm({ title, text, ok = "OK", danger = false }){
+  return new Promise(resolve => {
+    const modal = document.getElementById("confirmModal");
+    const okBtn = document.getElementById("confirmOk");
+    const cancelBtn = document.getElementById("confirmCancel");
+    const returnFocus = document.activeElement;
+    document.getElementById("confirmTitle").textContent = title;
+    document.getElementById("confirmText").textContent = text || "";
+    okBtn.textContent = ok;
+    okBtn.classList.toggle("btn-danger", danger);
+    const done = (value) => {
+      modal.classList.remove("is-open");
+      modal.setAttribute("aria-hidden", "true");
+      okBtn.removeEventListener("click", onOk);
+      cancelBtn.removeEventListener("click", onCancel);
+      modal.removeEventListener("click", onBackdrop);
+      document.removeEventListener("keydown", onKey, true);
+      if (returnFocus && returnFocus.focus) returnFocus.focus({ preventScroll: true });
+      resolve(value);
+    };
+    const onOk = () => done(true);
+    const onCancel = () => done(false);
+    const onBackdrop = (e) => { if (e.target === modal) done(false); };
+    const onKey = (e) => { if (e.key === "Escape") { e.stopPropagation(); done(false); } };
+    okBtn.addEventListener("click", onOk);
+    cancelBtn.addEventListener("click", onCancel);
+    modal.addEventListener("click", onBackdrop);
+    document.addEventListener("keydown", onKey, true);
+    modal.classList.add("is-open");
+    modal.setAttribute("aria-hidden", "false");
+    cancelBtn.focus();
+  });
+}
+
 function roundInProgress(){
   return moveHistory.length > 0 && !roundOutcome;
 }
@@ -1410,16 +1405,16 @@ function init(){
   if (boardCard && typeof ResizeObserver !== "undefined") new ResizeObserver(scheduleFit).observe(boardCard);
 
   document.querySelectorAll(".segmented__btn").forEach(btn => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
       const size = parseInt(btn.dataset.size, 10);
       if (size === lastSize && !roundOutcome && moveHistory.length === 0) return;
-      if (roundInProgress() && !confirm(`Auf ${size}×${size} wechseln? Die laufende Runde wird beendet.`)) return;
+      if (roundInProgress() && !(await askConfirm({ title: `Auf ${size}×${size} wechseln?`, text: "Die laufende Runde wird beendet.", ok: "Wechseln" }))) return;
       setSize(size);
     });
   });
 
-  document.getElementById("newRoundBtn").addEventListener("click", () => {
-    if (roundInProgress() && !confirm('Neue Runde starten? Der aktuelle Spielstand wird ersetzt.')) return;
+  document.getElementById("newRoundBtn").addEventListener("click", async () => {
+    if (roundInProgress() && !(await askConfirm({ title: "Neue Runde starten?", text: "Der aktuelle Spielstand wird ersetzt.", ok: "Neue Runde" }))) return;
     clearSavedState();
     generateBoard(true);
   });
@@ -1444,22 +1439,30 @@ function init(){
     undoMove();
   });
 
-  // Dark Mode nur auf Wunsch (Standard: hell), Auswahl wird gemerkt.
+  // Darstellung: "light" (Standard), "dark" oder "system" (folgt der iOS-/OS-Einstellung).
   const themeBtn = document.getElementById("themeBtn");
-  const applyTheme = (dark) => {
+  const systemDark = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+  let themePref = ["light", "dark", "system"].includes(loadPrefs().theme) ? loadPrefs().theme : "light";
+  const applyTheme = () => {
+    const dark = themePref === "dark" || (themePref === "system" && !!(systemDark && systemDark.matches));
     if (dark) document.documentElement.dataset.theme = "dark";
     else delete document.documentElement.dataset.theme;
     themeBtn.textContent = dark ? "☀️" : "🌙";
     themeBtn.setAttribute("aria-pressed", String(dark));
     themeBtn.setAttribute("aria-label", dark ? "Hellen Modus einschalten" : "Dark Mode einschalten");
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#0c0e12" : "#f3f3f5");
+    document.querySelectorAll("[data-theme-option]").forEach(b => {
+      const active = b.dataset.themeOption === themePref;
+      b.classList.toggle("is-active", active);
+      b.setAttribute("aria-checked", String(active));
+    });
   };
-  applyTheme(loadPrefs().theme === "dark");
-  themeBtn.addEventListener("click", () => {
-    const dark = document.documentElement.dataset.theme !== "dark";
-    applyTheme(dark);
-    savePrefs({ theme: dark ? "dark" : "light" });
-  });
+  const setThemePref = (pref) => { themePref = pref; savePrefs({ theme: pref }); applyTheme(); };
+  applyTheme();
+  if (systemDark) systemDark.addEventListener("change", () => { if (themePref === "system") applyTheme(); });
+  // Schnellschalter oben: wechselt direkt zwischen Hell und Dunkel.
+  themeBtn.addEventListener("click", () => setThemePref(document.documentElement.dataset.theme === "dark" ? "light" : "dark"));
+  document.querySelectorAll("[data-theme-option]").forEach(b => b.addEventListener("click", () => setThemePref(b.dataset.themeOption)));
 
   // "Nur Logos" blendet nur per CSS aus – der laufende Spielstand bleibt erhalten.
   const logoOnly = document.getElementById("logoOnly");
@@ -1480,8 +1483,8 @@ function init(){
   });
   document.getElementById('rulesClose').addEventListener('click', closeRules);
   rulesModal.addEventListener('click', e => { if (e.target === rulesModal) closeRules(); });
-  document.getElementById('resetScoreBtn').addEventListener('click', () => {
-    if (!confirm('Punktestand wirklich auf 0 : 0 zurücksetzen?')) return;
+  document.getElementById('resetScoreBtn').addEventListener('click', async () => {
+    if (!(await askConfirm({ title: "Punktestand zurücksetzen?", text: "Der Stand wird auf 0 : 0 gesetzt.", ok: "Zurücksetzen", danger: true }))) return;
     scores = { X: 0, O: 0 };
     saveScores();
     renderScores();
@@ -1491,15 +1494,6 @@ function init(){
   document.getElementById("modalCheck").addEventListener("click", checkAnswer);
   document.getElementById("modalDirect").addEventListener("click", directConfirmAnswer);
 
-  document.getElementById("debugToggle").addEventListener("click", () => {
-    const box = document.getElementById("debugRaw");
-    const nowVisible = !box.classList.contains("is-visible");
-    box.classList.toggle("is-visible", nowVisible);
-    if (nowVisible) {
-      box.focus();
-      box.select();
-    }
-  });
   document.getElementById("modalConfirm").addEventListener("click", () => commitMove());
   document.getElementById("modalCancel").addEventListener("click", closeNamePrompt);
 

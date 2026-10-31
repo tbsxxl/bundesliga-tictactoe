@@ -17,6 +17,7 @@ let gameLocked = false;
 let usedPlayers = []; // [{ norm, displayName }]
 let roundStartedAt = Date.now();
 let elapsedBeforePause = 0;
+let timerPaused = false; // true, solange die App im Hintergrund ist
 let timerHandle = null;
 let pending = null;   // { r, c, span, teamA, teamB, candidateName }
 let roundOutcome = null; // null | { winner: 'X' | 'O' | null } – null-winner = Unentschieden
@@ -99,7 +100,7 @@ function saveState(resultText){
       lastSize, topTeams, sideTeams, boardState,
       currentPlayer, moveHistory, usedPlayers, gameLocked, roundOutcome,
       resultText: resultText || "",
-      roundStartedAt, elapsedBeforePause,
+      roundStartedAt, elapsedBeforePause, savedAt: Date.now(),
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (err) {
@@ -120,7 +121,8 @@ function loadState(){
 }
 
 function getElapsedSeconds(){
-  return Math.max(0, Math.floor((elapsedBeforePause + (gameLocked ? 0 : (Date.now() - roundStartedAt))) / 1000));
+  const running = !gameLocked && !timerPaused;
+  return Math.max(0, Math.floor((elapsedBeforePause + (running ? (Date.now() - roundStartedAt) : 0)) / 1000));
 }
 function formatTime(sec){
   const m = Math.floor(sec / 60); const s = sec % 60;
@@ -1219,8 +1221,11 @@ function generateBoard(forceNewTeams = true, restored = null) {
     usedPlayers = restored.usedPlayers || [];
     gameLocked = !!restored.gameLocked;
     roundOutcome = restored.roundOutcome || null;
-    roundStartedAt = restored.roundStartedAt || Date.now();
-    elapsedBeforePause = restored.elapsedBeforePause || 0;
+    // Nur die Zeit bis zum letzten Speichern zählt – nicht die Zeit, in der die App zu war.
+    const ranUntilSave = (!restored.gameLocked && restored.savedAt && restored.roundStartedAt)
+      ? Math.max(0, restored.savedAt - restored.roundStartedAt) : 0;
+    elapsedBeforePause = (restored.elapsedBeforePause || 0) + ranUntilSave;
+    roundStartedAt = Date.now();
   } else {
     currentPlayer = 'X';
     moveHistory = [];
@@ -1397,10 +1402,22 @@ function checkWin(size) {
 }
 
 function markActiveSize(size){
-  document.querySelectorAll(".segmented__btn").forEach(b => {
+  document.querySelectorAll(".segmented__btn[data-size]").forEach(b => {
     const active = parseInt(b.dataset.size, 10) === size;
     b.classList.toggle("is-active", active);
     b.setAttribute("aria-checked", active ? "true" : "false");
+  });
+  syncSegmented();
+}
+
+// iOS-Segmented-Control: die helle „Pille“ gleitet zum aktiven Segment.
+function syncSegmented(){
+  document.querySelectorAll(".segmented").forEach(seg => {
+    const btns = [...seg.querySelectorAll(".segmented__btn")];
+    const i = btns.findIndex(b => b.classList.contains("is-active"));
+    seg.style.setProperty("--seg-n", String(btns.length));
+    seg.style.setProperty("--seg-i", String(Math.max(0, i)));
+    seg.classList.toggle("has-active", i >= 0);
   });
 }
 
@@ -1421,7 +1438,7 @@ function askConfirm({ title, text, ok = "OK", danger = false }){
     document.getElementById("confirmTitle").textContent = title;
     document.getElementById("confirmText").textContent = text || "";
     okBtn.textContent = ok;
-    okBtn.classList.toggle("btn-danger", danger);
+    okBtn.classList.toggle("alert__btn--destructive", danger);
     const done = (value) => {
       modal.classList.remove("is-open");
       modal.setAttribute("aria-hidden", "true");
@@ -1452,6 +1469,21 @@ function roundInProgress(){
 
 // Brett neu einpassen, sobald sich der verfügbare Platz ändert – auch wenn z. B.
 // das Ergebnis-Banner oder weitere genannte Spieler das Layout verschieben.
+// Timer pausieren, solange die App im Hintergrund ist, und den Stand dabei sichern.
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    if (!gameLocked && !timerPaused) elapsedBeforePause += Date.now() - roundStartedAt;
+    timerPaused = true;
+    roundStartedAt = Date.now();
+    const resultEl = document.getElementById("result");
+    if (boardState.length) saveState(resultEl ? resultEl.textContent : "");
+  } else {
+    timerPaused = false;
+    roundStartedAt = Date.now();
+    updateGameStats();
+  }
+});
+
 let resizeRaf = 0;
 function scheduleFit(){
   cancelAnimationFrame(resizeRaf);
@@ -1470,7 +1502,7 @@ function init(){
   const boardCard = document.querySelector(".board-card");
   if (boardCard && typeof ResizeObserver !== "undefined") new ResizeObserver(scheduleFit).observe(boardCard);
 
-  document.querySelectorAll(".segmented__btn").forEach(btn => {
+  document.querySelectorAll(".segmented__btn[data-size]").forEach(btn => {
     btn.addEventListener("click", async () => {
       const size = parseInt(btn.dataset.size, 10);
       if (size === lastSize && !roundOutcome && moveHistory.length === 0) return;
@@ -1513,15 +1545,15 @@ function init(){
     const dark = themePref === "dark" || (themePref === "system" && !!(systemDark && systemDark.matches));
     if (dark) document.documentElement.dataset.theme = "dark";
     else delete document.documentElement.dataset.theme;
-    themeBtn.textContent = dark ? "☀️" : "🌙";
     themeBtn.setAttribute("aria-pressed", String(dark));
     themeBtn.setAttribute("aria-label", dark ? "Hellen Modus einschalten" : "Dark Mode einschalten");
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#0c0e12" : "#f3f3f5");
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#000000" : "#f2f2f7");
     document.querySelectorAll("[data-theme-option]").forEach(b => {
       const active = b.dataset.themeOption === themePref;
       b.classList.toggle("is-active", active);
       b.setAttribute("aria-checked", String(active));
     });
+    syncSegmented();
   };
   const setThemePref = (pref) => { themePref = pref; savePrefs({ theme: pref }); applyTheme(); };
   applyTheme();

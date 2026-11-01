@@ -12,19 +12,25 @@
   --fill-strong: rgba(118,118,128,0.2);       /* secondarySystemFill */
   --separator: rgba(60,60,67,0.18);
   --label: #000000;
-  --label-2: rgba(60,60,67,0.6);              /* secondaryLabel */
+  --label-2: rgba(60,60,67,0.75);             /* secondaryLabel, abgedunkelt: 4,8:1 statt 3,3:1 */
   --label-3: rgba(60,60,67,0.3);              /* tertiaryLabel */
 
   --red: #ff3b30;
   --blue: #007aff;
   --green: #34c759;
   --orange: #ff9500;
-  --tint: var(--red);                         /* App-Akzentfarbe */
+  --tint: var(--red);                         /* App-Akzentfarbe (Flächen) */
 
-  --x: var(--red);
+  /* Textfarben mit ≥ 4,5:1 auf hellem Grund (Systemfarben sind als Text zu hell) */
+  --tint-text: #d70015;
+  --blue-text: #0062cc;
+  --green-text: #1e7d34;
+  --orange-text: #b25000;
+
+  --x: #e0241a;
   --o: var(--blue);
-  --x-soft: rgba(255,59,48,0.14);
-  --o-soft: rgba(0,122,255,0.14);
+  --x-soft: rgba(255,59,48,0.10);
+  --o-soft: rgba(0,122,255,0.10);
 
   /* Liquid Glass */
   --glass-bg: rgba(255,255,255,0.62);
@@ -48,7 +54,6 @@
   /* Wird dynamisch durch JS gesetzt (Fit-to-Viewport) */
   --gap: 10px;
   --cell: 110px;
-  --label: 110px;
   --mark: 46px;
   --logo: 60px;
 
@@ -77,6 +82,11 @@
   --blue: #0a84ff;
   --green: #30d158;
   --orange: #ff9f0a;
+  --tint-text: var(--red);
+  --blue-text: var(--blue);
+  --green-text: var(--green);
+  --orange-text: var(--orange);
+  --x: var(--red);
   --x-soft: rgba(255,69,58,0.2);
   --o-soft: rgba(10,132,255,0.22);
 
@@ -87,6 +97,32 @@
 
   --sheet-bg: rgba(28,28,30,0.88);
   --overlay: rgba(0,0,0,0.5);
+}
+
+/* Erhöhter Kontrast (iOS: „Kontrast erhöhen“) – Apples Increased-Contrast-Varianten */
+@media (prefers-contrast: more){
+  :root{
+    --separator: rgba(60,60,67,0.45);
+    --label-2: rgba(60,60,67,0.88);
+    --label-3: rgba(60,60,67,0.6);
+    --red: #d70015; --blue: #0040dd; --green: #248a3d; --orange: #c93400;
+    --tint-text: #d70015; --blue-text: #0040dd; --green-text: #1e7d34; --orange-text: #a84400;
+    --x: #d70015;
+    --glass-bg: rgba(255,255,255,0.92);
+    --glass-line: rgba(0,0,0,0.25);
+    --sheet-bg: #f2f2f7;
+  }
+  :root[data-theme="dark"]{
+    --separator: rgba(235,235,245,0.4);
+    --label-2: rgba(235,235,245,0.85);
+    --label-3: rgba(235,235,245,0.6);
+    --red: #ff6961; --blue: #409cff; --green: #30db5b; --orange: #ffb340;
+    --tint-text: #ff6961; --blue-text: #409cff; --green-text: #30db5b; --orange-text: #ffb340;
+    --x: #ff6961;
+    --glass-bg: rgba(44,44,48,0.94);
+    --glass-line: rgba(255,255,255,0.3);
+    --sheet-bg: #1c1c1e;
+  }
 }
 
 *{ box-sizing: border-box; }
@@ -164,7 +200,7 @@ body.modal-open{ overflow: hidden; }
   font-weight: 600;
   letter-spacing: 0;
   text-transform: uppercase;
-  color: var(--tint);
+  color: var(--tint-text);
 }
 .large-title{
   margin: 0;
@@ -199,9 +235,6 @@ body.modal-open{ overflow: hidden; }
   transition: transform 220ms var(--spring);
 }
 .glass-btn:active{ transform: scale(0.9); }
-.icon-sun{ display: none; }
-:root[data-theme="dark"] .icon-sun{ display: block; }
-:root[data-theme="dark"] .icon-moon{ display: none; }
 
 /* =========================================================
    Layout
@@ -257,6 +290,7 @@ body.modal-open{ overflow: hidden; }
   gap: 2px;
   padding: 4px;
   border-radius: 999px;
+  background: var(--surface);   /* Inhaltsebene: kein Glas (HIG › Materials) */
 }
 .scoreboard__side{
   display: flex;
@@ -330,7 +364,7 @@ body.modal-open{ overflow: hidden; }
   justify-content: center;
   gap: calc(var(--cell) * 0.05);
   text-align: center;
-  color: #fff;
+  color: var(--team-ink, #fff);
   padding: 8px 6px;
   background: linear-gradient(180deg, color-mix(in srgb, var(--team) 92%, #fff), var(--team) 55%, color-mix(in srgb, var(--team) 82%, #000));
   box-shadow: 0 2px 8px rgba(0,0,0,0.14), inset 0 0.5px 0 rgba(255,255,255,0.35);
@@ -348,14 +382,14 @@ body.modal-open{ overflow: hidden; }
   width: var(--logo);
   height: var(--logo);
   flex: none;
-  color: #fff;
+  color: inherit;
   font-family: var(--font-rounded);
   font-weight: 800;
   font-size: calc(var(--logo) * 0.42);
 }
 .team-logo span{
   max-width: 100%;
-  font-size: clamp(9px, calc(var(--cell) * 0.1), 12px);
+  font-size: clamp(11px, calc(var(--cell) * 0.1), 13px);   /* nie unter 11 pt */
   font-weight: 600;
   letter-spacing: 0;
   line-height: 1.1;
@@ -423,18 +457,25 @@ body.only-logos .team-fallback, body.compact .team-fallback{
 }
 .cell-content.has-photo.player-o::before{ box-shadow: inset 0 0 0 3px var(--o); }
 .cell-content.has-photo::after{
-  content: "";
+  /* X/O-Abzeichen: Besitz nicht nur über Farbe (HIG › Accessibility) */
+  content: "X";
   position: absolute;
-  top: 7px; right: 7px;
-  width: calc(var(--cell) * 0.14);
-  height: calc(var(--cell) * 0.14);
-  min-width: 10px; min-height: 10px;
+  top: 5px; right: 5px;
+  width: max(18px, calc(var(--cell) * 0.22));
+  height: max(18px, calc(var(--cell) * 0.22));
+  display: grid;
+  place-items: center;
   border-radius: 50%;
   border: 2px solid #fff;
   background: var(--x);
+  color: #fff;
+  font-family: var(--font-rounded);
+  font-size: max(11px, calc(var(--cell) * 0.13));
+  font-weight: 800;
+  line-height: 1;
   z-index: 2;
 }
-.cell-content.has-photo.player-o::after{ background: var(--o); }
+.cell-content.has-photo.player-o::after{ content: "O"; background: var(--o); }
 .cell-photo{ width: 100%; height: 100%; object-fit: cover; object-position: 50% 18%; display: block; }
 .cell-photo__name{
   position: absolute;
@@ -443,7 +484,7 @@ body.only-logos .team-fallback, body.compact .team-fallback{
   background: linear-gradient(to top, rgba(0,0,0,0.72), transparent);
   color: #fff;
   font-family: var(--font);
-  font-size: clamp(9px, calc(var(--cell) * 0.1), 12px);
+  font-size: clamp(11px, calc(var(--cell) * 0.1), 13px);
   font-weight: 600;
   text-align: center;
   line-height: 1.15;
@@ -563,7 +604,7 @@ body.only-logos .team-fallback, body.compact .team-fallback{
   transition: transform 240ms var(--spring), background 160ms var(--ease), opacity 160ms var(--ease);
 }
 .toolbar__btn:active:not(:disabled){ transform: scale(0.92); background: var(--fill); }
-.toolbar__btn--tint{ color: var(--tint); }
+.toolbar__btn--tint{ color: var(--tint-text); }
 .toolbar__btn:disabled{ opacity: 0.3; cursor: default; }
 .toolbar__btn .icon{ width: 24px; height: 24px; }
 
@@ -645,7 +686,7 @@ body.only-logos .team-fallback, body.compact .team-fallback{
 }
 .list-row + .list-row{ border-top: 0.5px solid var(--separator); }
 .list-row--button{ justify-content: center; }
-.list-row--destructive{ color: var(--red); }
+.list-row--destructive{ color: var(--tint-text); }
 .list-row--button:active{ background: var(--fill); }
 
 /* =========================================================
@@ -722,7 +763,7 @@ body.only-logos .team-fallback, body.compact .team-fallback{
   min-height: 44px;
   padding: 0 4px;
   font-size: 1.0625rem;
-  color: var(--tint);
+  color: var(--tint-text);
   cursor: pointer;
   justify-self: start;
 }
@@ -825,17 +866,17 @@ body.only-logos .team-fallback, body.compact .team-fallback{
 }
 .modal-feedback:empty{ display: none; }
 .modal-feedback.is-success, .modal-feedback.is-warn, .modal-feedback.is-error{ padding: 10px 12px; background: var(--surface); }
-.modal-feedback.is-success{ color: var(--green); }
-.modal-feedback.is-warn{ color: var(--orange); }
-.modal-feedback.is-error{ color: var(--red); }
+.modal-feedback.is-success{ color: var(--green-text); }
+.modal-feedback.is-warn{ color: var(--orange-text); }
+.modal-feedback.is-error{ color: var(--tint-text); }
 
 .match-summary{ display: none; padding: 12px; border-radius: 12px; background: var(--surface); }
 .match-summary:not(:empty){ display: block; }
 .match-summary__title{ font-size: 0.8125rem; text-transform: uppercase; color: var(--label-2); margin-bottom: 8px; }
 .match-summary__row{ display: flex; flex-wrap: wrap; gap: 6px; }
 .match-summary__team{ padding: 6px 11px; border-radius: 999px; font-size: 0.875rem; font-weight: 600; white-space: nowrap; }
-.match-summary__team.is-match{ color: var(--green); background: color-mix(in srgb, var(--green) 15%, transparent); }
-.match-summary__team.is-miss{ color: var(--red); background: color-mix(in srgb, var(--red) 13%, transparent); }
+.match-summary__team.is-match{ color: var(--green-text); background: color-mix(in srgb, var(--green) 15%, transparent); }
+.match-summary__team.is-miss{ color: var(--tint-text); background: color-mix(in srgb, var(--red) 13%, transparent); }
 
 .transfer-history{
   display: none;
@@ -860,7 +901,7 @@ body.only-logos .team-fallback, body.compact .team-fallback{
 #careerBody.is-collapsed{ display: none; }
 .transfer-history__list{ margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
 .transfer-history__list li{ font-size: 0.9375rem; color: var(--label); line-height: 1.35; }
-.transfer-history__list li.transfer-history__match{ color: var(--green); font-weight: 600; }
+.transfer-history__list li.transfer-history__match{ color: var(--green-text); font-weight: 600; }
 .transfer-history__list li.transfer-history__empty{ color: var(--label-2); }
 
 .modal-tm-link{
@@ -869,35 +910,21 @@ body.only-logos .team-fallback, body.compact .team-fallback{
   gap: 6px;
   min-height: 44px;
   font-size: 0.9375rem;
-  color: var(--blue);
+  color: var(--blue-text);
   text-decoration: none;
 }
 .modal-tm-link.is-visible{ display: inline-flex; }
 .modal-tm-link .icon{ width: 18px; height: 18px; }
 
-/* „Laut Historie bestätigen“ */
-.switch-row{
-  min-height: 52px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 16px;
-  border-radius: 12px;
-  background: var(--surface);
-  cursor: pointer;
-}
-.switch-row__label{ font-size: 1.0625rem; }
-.modal-manual{ display: none; }
-.modal-manual.is-visible{ display: flex; }
-
 .modal-actions{
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   margin-top: 4px;
 }
-.modal-actions #modalConfirm{ grid-column: 1 / -1; order: -1; }
+/* Nebenaktion als schlichter Text-Knopf unter der Hauptaktion */
+.btn-plain{ background: transparent; color: var(--tint-text); font-weight: 400; }
+.btn-plain:active:not(:disabled){ background: var(--fill); }
 
 /* Einstellungen */
 .settings-sheet{ gap: 18px; }
@@ -943,12 +970,12 @@ body.only-logos .team-fallback, body.compact .team-fallback{
    ========================================================= */
 .legal-page{ padding-bottom: calc(24px + var(--safe-bottom)); }
 .legal{ width: 100%; max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
-.legal__back{ align-self: flex-start; min-height: 44px; display: inline-flex; align-items: center; gap: 4px; font-size: 1.0625rem; color: var(--tint); text-decoration: none; }
+.legal__back{ align-self: flex-start; min-height: 44px; display: inline-flex; align-items: center; gap: 4px; font-size: 1.0625rem; color: var(--tint-text); text-decoration: none; }
 .legal__section{ background: var(--surface); border-radius: var(--radius-row); padding: 16px 18px; line-height: 1.5; }
 .legal__section h2{ margin: 0 0 8px; font-size: 1.25rem; font-weight: 700; }
 .legal__section h3{ margin: 16px 0 4px; font-size: 1.0625rem; font-weight: 600; }
 .legal__section p, .legal__section li{ font-size: 0.9375rem; color: var(--label); }
-.legal__section a{ color: var(--blue); }
+.legal__section a{ color: var(--blue-text); }
 .legal__section ul{ padding-left: 20px; }
 .legal__meta{ color: var(--label-2) !important; font-size: 0.8125rem !important; }
 

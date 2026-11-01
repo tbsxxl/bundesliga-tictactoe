@@ -188,7 +188,6 @@ function fitBoardToViewport(size){
 
   root.style.setProperty("--gap", `${gap}px`);
   root.style.setProperty("--cell", `${cell}px`);
-  root.style.setProperty("--label", `${cell}px`);
   root.style.setProperty("--logo", `${logo}px`);
   root.style.setProperty("--mark", `${mark}px`);
 
@@ -922,12 +921,21 @@ function showTransfermarktLink(show, name, id){
   }
 }
 
-function showManualConfirm(show){
-  const row = document.getElementById("manualConfirmRow");
-  const checkbox = document.getElementById("manualConfirm");
-  if (!row) return;
-  row.classList.toggle("is-visible", show);
-  if (!show && checkbox) checkbox.checked = false;
+/* Eine Hauptaktion, die mit dem Zustand wechselt:
+   "check" → Prüfen · "busy" → Prüfe … · "set" → Feld setzen · "override" → Trotzdem setzen */
+const PRIMARY_LABELS = { check: "Prüfen", busy: "Prüfe …", set: "Feld setzen", override: "Trotzdem setzen" };
+function setPrimaryMode(mode){
+  if (pending) pending.mode = mode;
+  const btn = document.getElementById("modalConfirm");
+  if (!btn) return;
+  btn.textContent = PRIMARY_LABELS[mode];
+  btn.disabled = mode === "busy";
+}
+
+function primaryAction(){
+  if (!pending) return;
+  if (pending.mode === "set" || pending.mode === "override") commitMove();
+  else if (pending.mode !== "busy") checkAnswer();
 }
 
 function openNamePrompt(r, c, span, teamA, teamB){
@@ -939,13 +947,12 @@ function openNamePrompt(r, c, span, teamA, teamB){
   const input = document.getElementById("playerInput");
   input.value = "";
   setModalFeedback("", "");
-  showManualConfirm(false);
   showTransfermarktLink(false);
   showTransferHistory([]);
   clearSuggestions();
   const summary = document.getElementById("matchSummary");
   if (summary) summary.innerHTML = "";
-  document.getElementById("modalConfirm").disabled = true;
+  setPrimaryMode("check");
 
   const modal = document.getElementById("nameModal");
   modal.classList.add("is-open");
@@ -981,9 +988,7 @@ function directConfirmAnswer(){
   }
   pending.candidateName = raw;
   pending.candidatePhoto = null;
-  setModalFeedback(`✓ ${raw}: direkt bestätigt.`, "success");
-  showManualConfirm(false);
-  // Direkt bestätigen ist bewusst ein Ein-Klick-Weg: sofort ins Feld übernehmen.
+  // „Ohne Prüfung setzen“ ist bewusst ein Ein-Klick-Weg: sofort ins Feld übernehmen.
   commitMove(true);
 }
 
@@ -993,16 +998,13 @@ async function checkAnswer(){
 
   const input = document.getElementById("playerInput");
   const raw = input.value.trim();
-  const confirmBtn = document.getElementById("modalConfirm");
-  const checkBtn = document.getElementById("modalCheck");
 
   if (!raw) {
     setModalFeedback("Bitte einen Namen eingeben.", "error");
-    showManualConfirm(false);
     showTransfermarktLink(false);
     showTransferHistory([]);
     renderMatchSummary(null);
-    confirmBtn.disabled = true;
+    setPrimaryMode("check");
     pending.candidateName = null;
     return;
   }
@@ -1010,11 +1012,10 @@ async function checkAnswer(){
   const norm = normalizeName(raw);
   if (usedPlayers.some(p => p.norm === norm)) {
     setModalFeedback("Dieser Spieler wurde in dieser Runde schon genannt.", "error");
-    showManualConfirm(false);
     showTransfermarktLink(false);
     showTransferHistory([]);
     renderMatchSummary(null);
-    confirmBtn.disabled = true;
+    setPrimaryMode("check");
     pending.candidateName = null;
     return;
   }
@@ -1022,49 +1023,53 @@ async function checkAnswer(){
   // Fallback-Link steht sofort bereit, auch während/falls die Auto-Prüfung scheitert
   setModalFeedback("Prüfe automatisch über Transfermarkt …", "warn");
   showTransfermarktLink(true, raw);
-  showManualConfirm(false);
   showTransferHistory([]);
-  confirmBtn.disabled = true;
-  checkBtn.disabled = true;
+  setPrimaryMode("busy");
 
   const result = await tryAutoCheck(raw, pending.teamA, pending.teamB);
 
   // Falls der Dialog inzwischen geschlossen/gewechselt wurde: nichts mehr anfassen
   if (pending !== currentPending) return;
-  checkBtn.disabled = false;
 
   if (result.status === "valid") {
     setModalFeedback(`✓ ${result.displayName}: automatisch bestätigt (laut Transfermarkt-Karriere für beide Vereine).`, "success");
-    showManualConfirm(false);
     showTransfermarktLink(true, result.displayName, result.id);
     showTransferHistory(result.transfers, true, pending.teamA, pending.teamB);
     renderMatchSummary(result, pending.teamA, pending.teamB);
     pending.candidateName = result.displayName;
     pending.candidatePhoto = result.photoUrl || null;
-    confirmBtn.disabled = false;
+    setPrimaryMode("set");
   } else if (result.status === "checked_no_match") {
-    setModalFeedback(`${result.displayName} gefunden, aber laut Karrierestationen nicht eindeutig für beide Vereine. Selbst prüfen und bei Einigkeit bestätigen.`, "warn");
-    showManualConfirm(true);
+    setModalFeedback(`${result.displayName} gefunden, aber laut Karrierestationen nicht eindeutig für beide Vereine. Seid ihr euch einig, könnt ihr trotzdem setzen.`, "warn");
     showTransfermarktLink(true, result.displayName, result.id);
     showTransferHistory(result.transfers, true, pending.teamA, pending.teamB);
     renderMatchSummary(result, pending.teamA, pending.teamB);
     pending.candidateName = result.displayName;
     pending.candidatePhoto = result.photoUrl || null;
-    confirmBtn.disabled = true;
+    setPrimaryMode("override");
   } else {
     // not_found oder error (Timeout, CORS, API down)
     const reason = result.status === "not_found" ? "Kein Treffer gefunden" : "Automatische Prüfung nicht möglich";
-    setModalFeedback(`${reason}. Auf Transfermarkt nachschlagen und bei Einigkeit gemeinsam bestätigen.`, "warn");
-    showManualConfirm(true);
+    setModalFeedback(`${reason}. Auf Transfermarkt nachschlagen – seid ihr euch einig, könnt ihr trotzdem setzen.`, "warn");
     showTransfermarktLink(true, raw);
     showTransferHistory([]);
     pending.candidateName = raw;
     pending.candidatePhoto = null;
-    confirmBtn.disabled = true;
+    setPrimaryMode("override");
   }
 }
 
+function setCellLabel(span, player, playerName){
+  const cell = span && span.parentElement;
+  if (!cell || !cell.dataset.label) return;
+  const state = player
+    ? `${playerName ? `${playerName}, ` : ""}Spieler ${player}`
+    : "frei";
+  cell.setAttribute("aria-label", `${cell.dataset.label}, ${state}`);
+}
+
 function renderCellMark(span, player, photoUrl, playerName){
+  setCellLabel(span, player, playerName);
   span.textContent = "";
   span.classList.add(`player-${player.toLowerCase()}`);
   span.classList.remove("has-photo");
@@ -1097,9 +1102,8 @@ function renderCellMark(span, player, photoUrl, playerName){
 function commitMove(force = false){
   if (!pending || !pending.candidateName) return;
 
-  // "Direkt bestätigen" darf ohne aktivierten "Feld setzen"-Button übernehmen.
-  const confirmBtn = document.getElementById("modalConfirm");
-  if (!force && confirmBtn.disabled) return;
+  // „Ohne Prüfung setzen“ (force) darf ohne vorherige Prüfung übernehmen.
+  if (!force && pending.mode !== "set" && pending.mode !== "override") return;
 
   const { r, c, span, candidateName, candidatePhoto } = pending;
 
@@ -1176,6 +1180,7 @@ function undoMove(){
       span.innerHTML = "";
       span.textContent = "?";
       span.classList.remove("player-x","player-o","has-photo");
+      setCellLabel(span, null);
     }
   }
 
@@ -1270,7 +1275,8 @@ function generateBoard(forceNewTeams = true, restored = null) {
       const cell = document.createElement("button");
       cell.type = "button";
       cell.className = "cell";
-      cell.setAttribute("aria-label", `${sideTeams[r]} & ${topTeams[c]}`);
+      cell.dataset.label = `${sideTeams[r]} & ${topTeams[c]}`;
+      cell.setAttribute("aria-label", `${cell.dataset.label}, frei`);
       if (gameLocked) cell.setAttribute("aria-disabled", "true");
 
       const span = document.createElement("span");
@@ -1334,7 +1340,9 @@ function createTeamCell(name) {
   div.setAttribute("aria-label", name);
 
   const data = typeof teamData !== "undefined" ? teamData[name] : null;
-  div.style.setProperty("--team", (data && data.color) || "#444");
+  const teamColor = (data && data.color) || "#444";
+  div.style.setProperty("--team", teamColor);
+  div.style.setProperty("--team-ink", readableInk(teamColor));
 
   if (data && data.logo) {
     const img = document.createElement("img");
@@ -1360,6 +1368,19 @@ function createTeamCell(name) {
   div.appendChild(span);
 
   return div;
+}
+
+/* Weiß oder Fast-Schwarz – je nachdem, was auf der Vereinsfarbe mehr Kontrast hat
+   (z. B. dunkle Schrift auf Dortmund-Gelb statt Weiß mit 1,3:1). */
+function readableInk(hex){
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || "");
+  if (!m) return "#fff";
+  const lum = [0, 2, 4].map(i => parseInt(m[1].slice(i, i + 2), 16) / 255)
+    .map(c => c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+  const L = 0.2126 * lum[0] + 0.7152 * lum[1] + 0.0722 * lum[2];
+  const onWhite = 1.05 / (L + 0.05);
+  const onDark = (L + 0.05) / (0.0123 + 0.05); // #1c1c1e
+  return onDark > onWhite ? "#1c1c1e" : "#fff";
 }
 
 function teamInitials(name){
@@ -1537,16 +1558,13 @@ function init(){
     undoMove();
   });
 
-  // Darstellung: "light" (Standard), "dark" oder "system" (folgt der iOS-/OS-Einstellung).
-  const themeBtn = document.getElementById("themeBtn");
+  // Darstellung: "system" (Standard, folgt der iOS-/OS-Einstellung), "light" oder "dark".
   const systemDark = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
-  let themePref = ["light", "dark", "system"].includes(loadPrefs().theme) ? loadPrefs().theme : "light";
+  let themePref = ["light", "dark", "system"].includes(loadPrefs().theme) ? loadPrefs().theme : "system";
   const applyTheme = () => {
     const dark = themePref === "dark" || (themePref === "system" && !!(systemDark && systemDark.matches));
     if (dark) document.documentElement.dataset.theme = "dark";
     else delete document.documentElement.dataset.theme;
-    themeBtn.setAttribute("aria-pressed", String(dark));
-    themeBtn.setAttribute("aria-label", dark ? "Hellen Modus einschalten" : "Dark Mode einschalten");
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#000000" : "#f2f2f7");
     document.querySelectorAll("[data-theme-option]").forEach(b => {
       const active = b.dataset.themeOption === themePref;
@@ -1558,8 +1576,6 @@ function init(){
   const setThemePref = (pref) => { themePref = pref; savePrefs({ theme: pref }); applyTheme(); };
   applyTheme();
   if (systemDark) systemDark.addEventListener("change", () => { if (themePref === "system") applyTheme(); });
-  // Schnellschalter oben: wechselt direkt zwischen Hell und Dunkel.
-  themeBtn.addEventListener("click", () => setThemePref(document.documentElement.dataset.theme === "dark" ? "light" : "dark"));
   document.querySelectorAll("[data-theme-option]").forEach(b => b.addEventListener("click", () => setThemePref(b.dataset.themeOption)));
 
   // "Nur Logos" blendet nur per CSS aus – der laufende Spielstand bleibt erhalten.
@@ -1582,23 +1598,16 @@ function init(){
   document.getElementById('rulesClose').addEventListener('click', closeRules);
   rulesModal.addEventListener('click', e => { if (e.target === rulesModal) closeRules(); });
   document.getElementById('resetScoreBtn').addEventListener('click', async () => {
-    if (!(await askConfirm({ title: "Punktestand zurücksetzen?", text: "Der Stand wird auf 0 : 0 gesetzt.", ok: "Zurücksetzen", danger: true }))) return;
+    if (!(await askConfirm({ title: "Punktestand zurücksetzen?", text: "Der Stand wird auf 0 : 0 gesetzt.", ok: "Zurücksetzen" }))) return;
     scores = { X: 0, O: 0 };
     saveScores();
     renderScores();
   });
 
   // --- Spieler-Abfrage-Modal ---
-  document.getElementById("modalCheck").addEventListener("click", checkAnswer);
   document.getElementById("modalDirect").addEventListener("click", directConfirmAnswer);
-
-  document.getElementById("modalConfirm").addEventListener("click", () => commitMove());
+  document.getElementById("modalConfirm").addEventListener("click", primaryAction);
   document.getElementById("modalCancel").addEventListener("click", closeNamePrompt);
-
-  document.getElementById("manualConfirm").addEventListener("change", (e) => {
-    const confirmBtn = document.getElementById("modalConfirm");
-    confirmBtn.disabled = !e.target.checked || !pending || !pending.candidateName;
-  });
 
   document.getElementById("nameModal").addEventListener("click", (e) => {
     if (e.target.id === "nameModal") closeNamePrompt();
@@ -1625,13 +1634,16 @@ function init(){
     if (e.key !== "Enter") return;
     e.preventDefault();
     if (activeSuggestionIndex >= 0) { selectPlayerSuggestion(activeSuggestionIndex); return; }
-    const confirmBtn = document.getElementById("modalConfirm");
-    if (!confirmBtn.disabled) commitMove(); else checkAnswer();
+    primaryAction();
   });
 
   document.getElementById("playerInput").addEventListener("input", (e) => {
     const q = e.target.value.trim();
-    pending && (pending.candidateName = null, pending.candidateId = null, pending.candidatePhoto = null);
+    if (pending) {
+      pending.candidateName = null; pending.candidateId = null; pending.candidatePhoto = null;
+      // Name geändert → Ergebnis gilt nicht mehr, wieder „Prüfen“
+      if (pending.mode !== "busy") setPrimaryMode("check");
+    }
     clearTimeout(suggestDebounceTimer);
     if (q.length < 2) { clearSuggestions(); return; }
     suggestDebounceTimer = setTimeout(() => fetchNameSuggestions(q), 150);

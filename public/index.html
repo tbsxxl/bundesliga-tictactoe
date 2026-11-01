@@ -37,10 +37,6 @@
       </p>
     </div>
     <div class="topbar__actions">
-      <button type="button" id="themeBtn" class="glass-btn" aria-label="Dark Mode einschalten" aria-pressed="false">
-        <svg class="icon icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg>
-        <svg class="icon icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/></svg>
-      </button>
       <button type="button" id="rulesBtn" class="glass-btn" aria-label="Einstellungen und Regeln">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6" class="fill"/><circle cx="12" cy="12" r="1.6" class="fill"/><circle cx="19" cy="12" r="1.6" class="fill"/></svg>
       </button>
@@ -50,7 +46,7 @@
   <main class="layout">
     <div class="status-row">
       <p id="currentPlayer" class="turn-pill" aria-live="polite">Spieler X ist am Zug</p>
-      <div class="scoreboard glass" id="scoreboard" aria-label="Spielstand">
+      <div class="scoreboard" id="scoreboard" role="group" aria-label="Spielstand">
         <div class="scoreboard__side scoreboard__side--x is-turn" id="sideX">
           <span class="scoreboard__mark">X</span>
           <span class="scoreboard__score" id="scoreX">0</span>
@@ -85,11 +81,11 @@
     </footer>
   </main>
 
-  <!-- Schwebende Glas-Leiste wie die Tab-Leiste in iOS -->
-  <nav class="toolbar glass" aria-label="Aktionen">
-    <button class="toolbar__btn" type="button" id="undoBtn" disabled title="Rückgängig (Strg/⌘ + Z)">
+  <!-- Schwebende Glas-Toolbar mit Aktionen (keine Tab-Leiste: Tabs navigieren, Toolbars handeln) -->
+  <div class="toolbar glass" role="toolbar" aria-label="Aktionen">
+    <button class="toolbar__btn" type="button" id="undoBtn" disabled title="Rückgängig (Strg/⌘ + Z)" aria-keyshortcuts="Control+Z Meta+Z">
       <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
-      <span>Zurück</span>
+      <span>Rückgängig</span>
     </button>
     <button class="toolbar__btn" type="button" id="skipBtn">
       <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5v14l10-7z"/><path d="M19 5v14"/></svg>
@@ -99,7 +95,7 @@
       <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66L20 8.5"/><path d="M20 3.5v5h-5"/></svg>
       <span>Neue Runde</span>
     </button>
-  </nav>
+  </div>
 
   <div id="rulesModal" class="modal-overlay" aria-hidden="true">
     <div class="modal-card settings-sheet" role="dialog" aria-modal="true" aria-labelledby="rulesTitle">
@@ -122,9 +118,9 @@
       <section class="group">
         <h3 class="group__header" id="themeLabel">Darstellung</h3>
         <div class="segmented" role="radiogroup" aria-labelledby="themeLabel">
-          <button class="segmented__btn" type="button" role="radio" data-theme-option="light" aria-checked="true">Hell</button>
+          <button class="segmented__btn" type="button" role="radio" data-theme-option="system" aria-checked="true">System</button>
+          <button class="segmented__btn" type="button" role="radio" data-theme-option="light" aria-checked="false">Hell</button>
           <button class="segmented__btn" type="button" role="radio" data-theme-option="dark" aria-checked="false">Dunkel</button>
-          <button class="segmented__btn" type="button" role="radio" data-theme-option="system" aria-checked="false">System</button>
         </div>
         <div class="group__body">
           <label class="list-row">
@@ -145,8 +141,9 @@
             <li>Tippe ein Feld an und nenne einen Spieler, der für <strong>beide</strong> Vereine (Zeile &amp; Spalte) im Profibereich gespielt hat.</li>
             <li>Jeder Spieler darf pro Runde nur einmal genannt werden.</li>
             <li>Jugendvereine und Nationalmannschaften zählen nicht als Profiverein.</li>
-            <li><strong>Prüfen</strong> verifiziert den Spieler automatisch über Transfermarkt.</li>
-            <li><strong>Direkt bestätigen</strong> übernimmt einen Treffer ohne Fact-Check – wenn ihr euch einig seid.</li>
+            <li><strong>Prüfen</strong> verifiziert den Spieler automatisch über Transfermarkt. Passt er, setzt <strong>Feld setzen</strong> dein Zeichen.</li>
+            <li>Findet die Prüfung nichts Eindeutiges, könnt ihr selbst nachsehen und bei Einigkeit <strong>Trotzdem setzen</strong>.</li>
+            <li><strong>Ohne Prüfung setzen</strong> übernimmt den Namen sofort – wenn ihr euch ohnehin einig seid.</li>
             <li>Wer zuerst eine komplette Reihe, Spalte oder Diagonale hat, gewinnt. Ist das Feld voll, endet die Runde unentschieden.</li>
           </ul>
         </div>
@@ -195,22 +192,13 @@
 
       <a id="transfermarktLink" class="modal-tm-link" href="#" target="_blank" rel="noopener">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-        „<span id="tmLinkName">Name</span>“ auf Transfermarkt nachschlagen
+        <span>„<span id="tmLinkName">Name</span>“ auf Transfermarkt nachschlagen</span>
       </a>
 
-      <label id="manualConfirmRow" class="switch-row modal-manual">
-        <span class="switch-row__label">Laut Historie oben bestätigen</span>
-        <span class="ios-switch">
-          <input type="checkbox" id="manualConfirm" />
-          <span class="ios-switch__track" aria-hidden="true"></span>
-          <span class="ios-switch__thumb" aria-hidden="true"></span>
-        </span>
-      </label>
-
       <div class="modal-actions">
-        <button type="button" class="btn btn-secondary" id="modalDirect">Direkt bestätigen</button>
-        <button type="button" class="btn btn-secondary" id="modalCheck">Prüfen</button>
-        <button type="button" class="btn btn-primary" id="modalConfirm" disabled>Feld setzen</button>
+        <!-- Eine Hauptaktion, die mit dem Zustand wechselt: Prüfen → Feld setzen / Trotzdem setzen -->
+        <button type="button" class="btn btn-primary" id="modalConfirm">Prüfen</button>
+        <button type="button" class="btn btn-plain" id="modalDirect">Ohne Prüfung setzen</button>
       </div>
     </div>
   </div>
